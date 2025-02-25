@@ -1,0 +1,489 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.business.dao.PlanDao">
+	<!-- 제조업체 리스트를 가져온다. -->
+	<select id="getManufacturer" resultType="java.util.Map">
+		SELECT
+		name as 'industryName'
+		,industry_code as 'industryCode'
+		, id as
+		manufacturer_id
+		FROM
+		tb_manufacturer
+	</select>
+
+	<!-- 디펄트 산업코드값을 가져온다.나중에 써먹으려고 -->
+	<select id="getUnitindustrycode" resultType="String">
+		SELECT
+		tm.industry_code
+		FROM
+		tb_manufacturer AS tm
+		WHERE
+		<choose>
+			<!-- tm.id 값이 null일 때 서브쿼리 사용 -->
+			<when test="tmId == null">
+				tm.id = (
+				SELECT MIN(m.id)
+				FROM tb_manufacturer AS m
+				)
+			</when>
+			<!-- tm.id 값이 있을 때 그 값을 사용 -->
+			<otherwise>
+				tm.id = #{tmId}
+			</otherwise>
+		</choose>
+	</select>
+
+
+	<!-- 말그대로 대분류를 리스트로 가져온다. -->
+	<select id="getMainCategoryList" resultType="java.util.Map">
+		SELECT
+		gc.group_name
+		,gc.group_code
+		FROM
+		tb_group_code AS gc
+		where
+		gc.reference_code = 'MF'
+		and gc.group_code = #{group_code};
+
+	</select>
+	<!-- 말그대로 소분류를 리스트로 가져온다. -->
+	<select id="getSubCategoryList" resultType="java.util.Map">
+		SELECT
+		dc.detail_name
+		,dc.detail_code
+		FROM
+		tb_detail_code AS dc
+		INNER JOIN tb_group_code AS gc ON
+		dc.group_code = gc.group_code
+		WHERE
+		dc.group_code = #{group_code}
+		AND dc.higher_code != dc.detail_code;
+	</select>
+
+
+
+	<select id="getProductList" resultType="java.util.Map">
+
+		SELECT
+		p.name
+		,p.product_code
+		, p.industry_code
+		FROM
+		tb_manufacturer_product AS p
+		INNER JOIN tb_detail_code AS d ON
+		p.product_code = d.detail_code
+
+		WHERE d.detail_code=#{industry_code}
+
+	</select>
+
+
+
+
+
+
+<select id="searchPlanList" resultType="java.util.Map">
+  SELECT
+    p.plan_num,
+    p.target_date,
+    c.client_name,
+    c.id AS 'client_id',
+    m.name,
+    g.group_name,
+    d.detail_name,
+    d.detail_code,
+    pro.name AS 'product_name',
+    pro.industry_code,
+    pro.manufacturer_id,
+    p.goal_quanti,
+    p.perform_qut,
+    p.plan_memo,
+    e.name AS 'emp_name',
+    e.id AS 'emp_id'
+  FROM
+    tb_client AS c
+    INNER JOIN tb_plan AS p ON c.id = p.client_id
+    INNER JOIN tb_manufacturer AS m ON p.manufacturer_id = m.id
+    INNER JOIN tb_detail_code AS d ON d.detail_code = p.detail_code
+    INNER JOIN tb_group_code AS g ON g.group_code = p.industry_code
+    <choose>
+      <when test="product_name != ''">
+        INNER JOIN tb_manufacturer_product AS pro ON pro.name = p.product_name
+      </when>
+      <otherwise>
+        INNER JOIN tb_manufacturer_product AS pro ON pro.product_code = p.detail_code
+      </otherwise>
+    </choose>
+    INNER JOIN tb_emp AS e ON p.emp_id = e.id
+  WHERE
+    d.group_code = #{group_code}
+    <if test="product_name != ''">
+      AND pro.name = #{product_name}
+    </if>
+    AND p.detail_code = #{product_code}
+    <choose>
+      <when test="product_name != null and enterence eq 'yes'">
+        LIMIT 0, 30
+      </when>
+      <otherwise>
+        AND DATE(p.target_date) = #{target_date}
+      </otherwise>
+    </choose>
+</select>
+
+<select id="searchPlanList2" resultType="java.util.Map">
+	SELECT
+		p.plan_num,
+		p.target_date,
+		c.client_name,
+		c.id AS 'client_id',
+		m.name,
+		g.group_name,
+		d.detail_name,
+		d.detail_code,
+		pro.name AS 'product_name',
+		pro.industry_code,
+		pro.manufacturer_id,
+		p.goal_quanti,
+		COALESCE(SUM(op.quantity), 0) AS 'perform_qut',
+		p.plan_memo,
+		e.name AS 'emp_name',
+		e.id AS 'emp_id'
+	FROM
+		tb_client AS c
+		INNER JOIN tb_plan AS p ON c.id = p.client_id
+		INNER JOIN tb_manufacturer AS m ON p.manufacturer_id = m.id
+		INNER JOIN tb_detail_code AS d ON d.detail_code = p.detail_code
+		INNER JOIN tb_group_code AS g ON g.group_code = p.industry_code
+		<choose>
+			<when test="product_name != ''">
+				INNER JOIN tb_manufacturer_product AS pro ON pro.name = p.product_name
+			</when>
+			<otherwise>
+				INNER JOIN tb_manufacturer_product AS pro ON pro.product_code = p.detail_code
+			</otherwise>
+		</choose>
+		INNER JOIN tb_emp AS e ON p.emp_id = e.id
+		LEFT JOIN tb_order o 
+			ON p.emp_id = o.emp_id
+			AND p.client_id = o.client_id
+			AND o.order_date = p.target_date
+		LEFT JOIN tb_order_product op
+			ON o.id = op.order_id
+			AND o.client_id = op.client_id
+			AND o.emp_id = op.emp_id
+			AND p.product_id = op.product_id
+	WHERE
+		d.group_code = #{group_code}
+		<if test="product_name != ''">
+			AND pro.name = #{product_name}
+		</if>
+		AND p.detail_code = #{product_code}
+		<choose>
+			<when test="product_name != null and enterence eq 'yes'">
+				LIMIT 0, 30
+			</when>
+			<otherwise>
+				AND DATE(p.target_date) = #{target_date}
+			</otherwise>
+		</choose>
+	GROUP BY 
+		p.plan_num, p.target_date, c.client_name, c.id, m.name, g.group_name, d.detail_name, d.detail_code, 
+		pro.name, pro.industry_code, pro.manufacturer_id, p.goal_quanti, p.plan_memo, e.name, e.id
+</select>
+
+
+
+
+
+
+
+<select id="defaultSearchPlanList" resultType="java.util.Map">
+
+select * from tb_plan as t left join ( 
+SELECT
+	p.plan_num,
+	p.product_name,
+	p.target_date,
+	c.client_name,
+	c.id AS 'client_id',
+	e.name as 'emp_name',
+	/* m.name,
+	g.group_name,
+	d.detail_name,
+	d.detail_code,*/
+	/*pro.name AS 'product_name',
+	pro.industry_code,
+	pro.manufacturer_id,*/
+	p.goal_quanti,
+	p.perform_qut,
+	p.plan_memo
+	/*e.name AS 'emp_name',
+	e.id AS 'emp_id'*/
+FROM
+	tb_client AS c
+INNER JOIN tb_plan AS p ON
+	c.id = p.client_id
+inner join tb_emp as e on e.id=p.emp_id	
+	
+) as j on  t.plan_num=j.plan_num
+
+left join (select * from tb_group_code as sg where sg.group_code = #{group_code} ) as g on t.industry_code=g.group_code
+
+left join (select * from tb_manufacturer  as sm where sm.id = #{group_code} ) as m on t.industry_code=m.id
+
+left join (select * from tb_detail_code  as sd where sd.group_code= #{group_code} and sd.detail_code = #{product_code} ) as d on d.group_code=g.group_code
+
+ WHERE
+    t.industry_code =  #{group_code}
+  
+    AND t.detail_code = #{product_code}
+    
+    AND t.product_name=#{product_name}
+    
+        LIMIT 0, 30
+       </select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!--  대/소분 류 변경에 의한 기본 셀렉트 -->
+<!-- <select id="defaultSearchPlanList" resultType="java.util.Map">
+
+SELECT * FROM tb_plan as t LEFT JOIN ( 
+SELECT
+	p.plan_num,
+	p.product_name,
+	p.target_date,
+	c.client_name,
+	c.id AS 'client_id',
+	/*m.name,
+	g.group_name,
+	d.detail_name,
+	d.detail_code,
+	pro.name AS 'product_name',
+	pro.industry_code,
+	pro.manufacturer_id,*/
+	p.goal_quanti,
+	p.perform_qut,
+	p.plan_memo
+	/*e.name AS 'emp_name',
+	e.id AS 'emp_id'*/
+FROM
+	tb_client AS c
+INNER JOIN tb_plan AS p ON
+	c.id = p.client_id
+) as j on  t.plan_num=j.plan_num
+
+ WHERE
+    t.industry_code =  #{group_code}
+  
+    AND t.detail_code = #{product_code}
+  
+        LIMIT 0, 30
+       </select> -->
+
+
+
+
+<!-- 	<select id="searchPlanList" resultType="java.util.Map">
+
+		SELECT
+		
+		p.plan_num,
+		
+		p.target_date
+		,
+		c.client_name
+		,
+		c.id as 'client_id'
+		,
+		m.name
+		,
+		g.group_name
+		,
+		d.detail_name
+		,
+		d.detail_code
+		,
+		pro.name AS 'product_name'
+		,
+		pro.industry_code
+		,
+		pro.manufacturer_id
+		
+		,
+		p.goal_quanti
+		,
+		p.perform_qut
+		, p.plan_memo
+		, e.name as 'emp_name'
+		, e.id as 'emp_id'
+		FROM
+		tb_client AS c
+		INNER join tb_plan AS p ON
+		c.id = p.client_id
+		INNER join tb_manufacturer AS m ON
+		p.manufacturer_id = m.id
+		INNER join tb_detail_code AS d ON
+		d.detail_code = p.detail_code
+		INNER join tb_group_code AS g ON
+		g.group_code = p.industry_code
+		
+		<choose>
+		<when test="product_name != ''">
+		INNER JOIN tb_manufacturer_product AS pro ON
+		pro.name = p.product_name
+		</when>
+		<otherwise>
+		INNER JOIN tb_manufacturer_product AS pro ON
+		pro.product_code = p.detail_code		
+		</otherwise>
+		
+		</choose>
+		
+		
+		INNER JOIN tb_emp as e on p.emp_id =e.id
+
+		where
+		d.group_code =#{group_code}
+		<if test="product_name != ''">
+			AND pro.name = #{product_name}
+		</if>
+		AND p.detail_code =#{product_code}
+		AND DATE(p.target_date) = #{target_date}
+	</select>
+ -->
+
+
+<select id="checkEmpId"  resultType="java.util.Map">
+		SELECT id as 'emp_id' FROM tb_emp as e
+
+		WHERE e.id=#{emp_id}
+	</select>
+	
+
+
+
+<!--
+
+<select id="checkEmpId"  resultType="java.util.Map">
+		select p.emp_id from tb_plan as p
+
+		inner join tb_emp as e on p.emp_id=e.id
+
+		where p.emp_id=#{emp_id}
+	</select>
+
+  -->
+	
+	
+
+
+
+<insert id="insertPlan" >
+    INSERT INTO tb_plan
+    (
+        emp_id,
+        client_id,
+        manufacturer_id,
+        industry_code,
+        target_date,
+        goal_quanti,
+        perform_qut,
+        plan_memo,  
+        detail_code,
+        product_id,
+        product_name
+    )
+    VALUES
+    (
+        #{emp_id},
+        #{client_id},
+        #{manufacturer_id},
+        #{industry_code},
+        #{target_date},
+        #{goal_quanti},
+        #{perform_qut},
+        <if test="plan_memo != null and plan_memo != ''">#{plan_memo}</if>  <!-- plan_memo가 있을 경우만 값 넣기 -->
+        <if test="plan_memo == null or plan_memo == ''">DEFAULT</if>,  <!-- plan_memo가 없으면 기본값 (DEFAULT) 사용 -->
+        #{detail_code},
+        (
+        	SELECT id
+			FROM tb_manufacturer_product
+			WHERE product_code = #{detail_code}
+			AND name LIKE CONCAT('%', #{product_name} ,'%')
+        ),
+        #{product_name}
+    )
+</insert>
+
+
+<update id="updatePlan">
+  UPDATE tb_plan
+  <set>
+    <if test="emp_id != null and emp_id != ''">
+      emp_id = #{emp_id},
+    </if>
+    <if test="client_id != null and client_id != ''">
+      client_id = #{client_id},
+    </if>
+    <if test="manufacturer_id != null and manufacturer_id != ''">
+      manufacturer_id = #{manufacturer_id},
+    </if>
+    <if test="industry_code != null and industry_code != ''">
+      industry_code = #{industry_code},
+    </if>
+    <if test="target_date != null and target_date != ''">
+      target_date = #{target_date},
+    </if>
+    <if test="goal_quanti != null and goal_quanti != ''">
+      goal_quanti = #{goal_quanti},
+    </if>
+    <if test="perform_qut != null and perform_qut != ''">
+      perform_qut = #{perform_qut},
+    </if>
+    <if test="plan_memo != null and plan_memo != ''">
+      plan_memo = #{plan_memo},
+    </if>
+    <if test="detail_code != null and detail_code != ''">
+      detail_code = #{detail_code},
+    </if>
+    <if test="product_name != null and product_name != ''">
+      product_name = #{product_name},
+    </if>
+  </set>
+  WHERE plan_num=#{plan_num}
+</update>
+
+
+<delete id="deletePlan">
+
+DELETE FROM tb_plan  WHERE plan_num=#{plan_num}
+
+</delete>
+
+
+
+
+
+
+
+
+
+</mapper>

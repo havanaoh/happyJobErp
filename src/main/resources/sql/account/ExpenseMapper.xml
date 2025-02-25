@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.account.dao.ExpenseDao">
+
+	<select id="getExpenseList" resultType="kr.happyjob.study.account.model.ExpenseModel">
+		SELECT
+		te.id
+		,te.emp_no
+		,te.client_id
+		,te.req_date
+		,te.use_date
+		,te.use_department
+		,te.expense_payment
+		,te.is_approval
+		,te.approval_date
+		,te.expense_content
+		,te.debit_code
+		,te2.user_type
+		,te2.name
+		,tc.client_name
+		,tdc.detail_name
+		,tgc.group_code
+		,tgc.group_name
+		FROM
+		tb_expense te
+		INNER JOIN tb_emp te2
+		ON
+		te2.number = te.emp_no
+		LEFT JOIN
+    	tb_client tc ON tc.id = te.client_id
+		INNER JOIN tb_detail_code tdc
+		ON
+		tdc.detail_code = te.debit_code
+		INNER JOIN tb_group_code tgc
+		ON
+		tdc.group_code = tgc.group_code
+		WHERE
+		te2.login_id = #{loginId}
+		AND te.client_id IS NOT NULL OR te.client_id IS NULL
+		<if test="(searchGroup != null) and (!''.equals(searchGroup))">
+			AND tgc.group_code = #{searchGroup}
+		</if>
+		<if test="(searchGroup == null) and (''.equals(searchGroup))">
+			AND tgc.group_code  IN ('AC03', 'AC04')
+		</if>
+		<if test="(searchDetail != null) and (!''.equals(searchDetail))">
+			AND tdc.detail_code = #{searchDetail}
+		</if>
+		<if test="(searchApproval != null) and (!''.equals(searchApproval))">
+			AND te.is_approval = #{searchApproval}
+		</if>
+		<if test="(searchStDate != null) and (!''.equals(searchStDate))">
+			AND te.req_date <![CDATA[>=]]>
+			STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+		</if>
+		<if test="(searchEdDate != null) and (!''.equals(searchEdDate))">
+			AND te.req_date <![CDATA[<=]]>
+			STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+		</if>
+		ORDER BY te.id DESC
+		LIMIT #{startSeq}, #{pageSize}
+	</select>
+
+	<select id="getAllExpenseList" resultType="kr.happyjob.study.account.model.ExpenseModel">
+		SELECT
+		te.id
+		,te.emp_no
+		,te.client_id
+		,te.req_date
+		,te.use_date
+		,te.use_department
+		,te.expense_payment
+		,te.is_approval
+		,te.approval_date
+		,te.expense_content
+		,te.debit_code
+		,te.crebit_code
+		,te2.user_type
+		,te2.name
+		,tc.client_name
+		,tdc.detail_name
+		,tdc2.detail_name as crebit_name
+		,tgc.group_code
+		,tgc.group_name
+		FROM
+		tb_expense te
+		INNER JOIN tb_emp te2
+		ON
+		te2.number = te.emp_no
+		LEFT JOIN
+    	tb_client tc ON tc.id = te.client_id
+		INNER JOIN tb_detail_code tdc
+		ON
+		tdc.detail_code = te.debit_code
+		LEFT JOIN tb_detail_code tdc2
+		ON
+		tdc2.detail_code = te.crebit_code
+		INNER JOIN
+		tb_group_code tgc
+		ON
+		tdc.group_code = tgc.group_code
+		<where>
+			AND te.client_id IS NOT NULL OR te.client_id IS NULL
+			<if test="(searchGroup != null) and (!''.equals(searchGroup))">
+				AND tgc.group_code = #{searchGroup}
+			</if>
+			<if test="(searchGroup == null) and (''.equals(searchGroup))">
+			AND tgc.group_code  IN ('AC03', 'AC04')
+		</if>
+			<if test="(searchDetail != null) and (!''.equals(searchDetail))">
+				AND tdc.detail_code = #{searchDetail}
+			</if>
+			<if test="(searchApproval != null) and (!''.equals(searchApproval))">
+				AND te.is_approval = #{searchApproval}
+			</if>
+			<if test="(searchStDate != null) and (!''.equals(searchStDate))">
+				AND te.req_date <![CDATA[>=]]>
+				STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+			</if>
+			<if test="(searchEdDate != null) and (!''.equals(searchEdDate))">
+				AND te.req_date <![CDATA[<=]]>
+				STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+			</if>
+		</where>
+		ORDER BY te.id DESC
+		LIMIT #{startSeq}, #{pageSize}
+	</select>
+
+	<select id="getAllExpenseListCnt" resultType="int">
+		SELECT
+		count(te.id)
+		FROM
+		tb_expense te
+		INNER JOIN tb_emp te2
+		ON
+		te2.number =
+		te.emp_no
+		LEFT JOIN tb_client tc
+		ON
+		tc.id = te.client_id
+		INNER JOIN
+		tb_detail_code tdc
+		ON
+		tdc.detail_code = te.debit_code
+		INNER JOIN
+		tb_group_code tgc
+		ON
+		tdc.group_code = tgc.group_code
+		<where>
+			AND te.client_id IS NOT NULL OR te.client_id IS NULL
+			<if test="(searchGroup != null) and (!''.equals(searchGroup))">
+				AND tgc.group_code = #{searchGroup}
+			</if>
+			<if test="(searchGroup == null) and (''.equals(searchGroup))">
+			AND tgc.group_code  IN ('AC03', 'AC04')
+		</if>
+			<if test="(searchDetail != null) and (!''.equals(searchDetail))">
+				AND tdc.detail_code = #{searchDetail}
+			</if>
+			<if test="(searchApproval != null) and (!''.equals(searchApproval))">
+				AND te.is_approval = #{searchApproval}
+			</if>
+			<if test="(searchStDate != null) and (!''.equals(searchStDate))">
+				AND te.req_date <![CDATA[>=]]>
+				STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+			</if>
+			<if test="(searchEdDate != null) and (!''.equals(searchEdDate))">
+				AND te.req_date <![CDATA[<=]]>
+				STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+			</if>
+		</where>
+	</select>
+
+	<select id="getExpenseListCnt" resultType="int">
+		SELECT
+		count(te.id)
+		FROM
+		tb_expense te
+		INNER JOIN tb_emp te2
+		ON
+		te2.number =
+		te.emp_no
+		LEFT JOIN tb_client tc
+		ON
+		tc.id = te.client_id
+		INNER JOIN
+		tb_detail_code tdc
+		ON
+		tdc.detail_code = te.debit_code
+		INNER JOIN
+		tb_group_code tgc
+		ON
+		tdc.group_code = tgc.group_code
+		<where>
+			AND te.client_id IS NOT NULL OR te.client_id IS NULL
+			<if test="(searchGroup != null) and (!''.equals(searchGroup))">
+				AND tgc.group_code = #{searchGroup}
+			</if>
+			<if test="(searchGroup == null) and (''.equals(searchGroup))">
+			AND tgc.group_code  IN ('AC03', 'AC04')
+		</if>
+			<if test="(searchDetail != null) and (!''.equals(searchDetail))">
+				AND tdc.detail_code = #{searchDetail}
+			</if>
+			<if test="(searchApproval != null) and (!''.equals(searchApproval))">
+				AND te.is_approval = #{searchApproval}
+			</if>
+			<if test="(searchStDate != null) and (!''.equals(searchStDate))">
+				AND te.req_date <![CDATA[>=]]>
+				STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+			</if>
+			<if test="(searchEdDate != null) and (!''.equals(searchEdDate))">
+				AND te.req_date <![CDATA[<=]]>
+				STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+			</if>
+		</where>
+	</select>
+
+	<select id="expenseSearchList" resultType="kr.happyjob.study.account.model.AccountModel">
+		SELECT
+		DISTINCT detail_code
+		,detail_name
+		FROM
+		tb_detail_code
+		<where>
+			<if test="(group_code != null) and (!''.equals(group_code))">
+				AND group_code = #{group_code}
+			</if>
+			<if test="(group_code == null) or (''.equals(group_code))">
+				AND group_code IN ('AC03', 'AC04')
+			</if>
+			AND code_type = '지출'
+			AND use_yn = 'Y'
+		</where>
+	</select>
+
+	<select id="expenseCrebitList" resultType="kr.happyjob.study.account.model.AccountModel">
+		SELECT
+		DISTINCT
+		detail_code
+		,detail_name
+		FROM
+		tb_detail_code
+		WHERE
+		group_code = 'AC05'
+		AND use_yn = 'Y'
+	</select>
+
+	<insert id="expenseFileSave">
+		<selectKey resultType="int" keyProperty="seq" order="BEFORE">
+			SELECT
+			IFNULL(max(id), 0) + 1 FROM tb_expense
+		</selectKey>
+		INSERT INTO tb_expense
+		(
+		id
+		, emp_no
+		, client_id
+		, req_date
+		, use_date
+		,
+		use_department
+		, expense_payment
+		, is_approval
+		, expense_content
+		,
+		debit_code
+		<if test="'Y'.toString() eq fileYn">
+			, file_name
+			, physical_path
+			, logical_path
+			, file_size
+			,
+			file_ext
+		</if>
+		) VALUES (
+		#{seq}
+		, #{emp_no}
+		, <if test="clientId == ''">null</if><if test="clientId != ''">#{clientId}</if>
+		, now()
+		, #{use_date}
+		,
+		#{use_dept}
+		, #{exp_pay}
+		, 'W'
+		, #{expenseContent}
+		, #{accountDetail}
+		<if test="'Y'.toString() eq fileYn">
+			, #{fileInfo.file_nm}
+			, #{fileInfo.file_loc}
+			,
+			#{fileInfo.vrfile_loc}
+			, #{fileInfo.file_size}
+			,
+			#{fileInfo.fileExtension}
+		</if>
+		)
+	</insert>
+
+	<select id="expenseUser" resultType="kr.happyjob.study.login.model.LgnInfoModel">
+		SELECT
+		te.number as usr_idx
+		,te.user_type as mem_author
+		,te.name as usr_nm
+		,tdc.detail_name as
+		detail_name
+		FROM
+		tb_emp te
+		INNER JOIN tb_detail_code tdc
+		ON
+		te.department_code = tdc.detail_code
+		WHERE
+		te.login_id = #{loginId}
+	</select>
+
+	<select id="expenseClient" resultType="kr.happyjob.study.business.model.BusinessModel">
+		SELECT
+		id
+		,client_name as
+		clientName
+		FROM
+		tb_client
+	</select>
+
+	<update id="expenseUpdate">
+		UPDATE tb_expense
+		SET
+		is_approval = #{checkApproval}
+		,crebit_code = #{detail_code}
+		WHERE id = #{exp_id}
+	</update>
+
+	<update id="expenseLastUpdate">		
+		UPDATE tb_expense
+		SET
+		is_approval = #{checkApproval}
+		,approval_date = now()
+		WHERE id = #{exp_id}
+	</update>
+
+
+	<delete id="expenseDelete">
+		DELETE FROM tb_expense
+		WHERE id =
+		#{exp_id}
+	</delete>
+
+	<select id="expenseFileDetail" resultType="kr.happyjob.study.account.model.ExpenseModel">
+		SELECT
+		file_name
+		,physical_path
+		, logical_path
+		, file_size
+		, file_ext
+		FROM
+		tb_expense
+		WHERE id
+		= #{expenseSeq}
+	</select>
+</mapper>

@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.sales.dao.ReceivableDao">
+
+	<select id="receivableList" resultType="kr.happyjob.study.sales.model.ReceivableModel">
+		SELECT 
+			*
+		FROM 
+		(
+			SELECT 
+				od.id AS orderId
+				, (
+					SELECT dc.detail_name 
+					FROM tb_detail_code dc 
+					WHERE dc.detail_code = od.department_code
+				) AS departmentName
+				, od.client_name AS clientName
+				, od.product_name AS productName 
+				, od.order_date AS orderDate
+				, od.delivery_date AS deliveryDate 
+				, (
+			        SELECT rc.receivable_status 
+			        FROM tb_receivable rc 
+			        WHERE rc.order_id = od.id 
+			        ORDER BY rc.id ASC 
+			        LIMIT 1
+			    ) AS receivableStatus
+			    , od.receivable_amount AS receivableAmount 
+				, (
+			        SELECT rc.manager_name 
+			        FROM tb_receivable rc 
+			        WHERE rc.order_id = od.id 
+			        ORDER BY rc.id ASC 
+			        LIMIT 1
+			    ) AS managerName
+			FROM tb_order od
+		) tmp
+		<where>
+			<if test="(productName != null) and (!''.equals(productName))">
+				AND tmp.productName LIKE CONCAT('%', #{productName} ,'%')
+			</if>
+			<if test="(clientName != null) and (!''.equals(clientName))">
+				AND tmp.clientName LIKE CONCAT('%', #{clientName} ,'%')
+			</if>
+			<if test="(searchStDate != null) and (!''.equals(searchStDate))">
+				AND tmp.orderDate <![CDATA[>=]]> STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+			</if>
+			<if test="(searchEdDate != null) and (!''.equals(searchEdDate))">
+				AND tmp.orderDate <![CDATA[<=]]> STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+			</if>
+			<if test="(receivableStatus != null) and (!''.equals(receivableStatus))">
+				AND tmp.receivableStatus LIKE CONCAT('%', #{receivableStatus} ,'%')
+			</if>
+		</where>
+		ORDER BY tmp.orderId DESC
+		LIMIT #{startSeq}, #{pageSize}
+	</select>
+	
+	<select id="receivableListCnt" resultType="int">
+		SELECT 
+			COUNT(tmp.orderId) 
+		FROM 
+		(
+			SELECT 
+				od.id AS orderId
+				, (
+					SELECT dc.detail_name 
+					FROM tb_detail_code dc 
+					WHERE dc.detail_code = od.department_code
+				) AS departmentName
+				, od.client_name AS clientName
+				, od.product_name AS productName 
+				, od.order_date AS orderDate
+				, od.delivery_date AS deliveryDate 
+				, (
+			        SELECT rc.receivable_status 
+			        FROM tb_receivable rc 
+			        WHERE rc.order_id = od.id 
+			        ORDER BY rc.id ASC 
+			        LIMIT 1
+			    ) AS receivableStatus
+				, (
+			        SELECT rc.manager_name 
+			        FROM tb_receivable rc 
+			        WHERE rc.order_id = od.id 
+			        ORDER BY rc.id ASC 
+			        LIMIT 1
+			    ) AS managerName
+			FROM tb_order od
+		) tmp
+		<where>
+			<if test="(productName != null) and (!''.equals(productName))">
+				AND tmp.productName LIKE CONCAT('%', #{productName} ,'%')
+			</if>
+			<if test="(clientName != null) and (!''.equals(clientName))">
+				AND tmp.clientName LIKE CONCAT('%', #{clientName} ,'%')
+			</if>
+			<if test="(searchStDate != null) and (!''.equals(searchStDate))">
+				AND tmp.orderDate <![CDATA[>=]]> STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+			</if>
+			<if test="(searchEdDate != null) and (!''.equals(searchEdDate))">
+				AND tmp.orderDate <![CDATA[<=]]> STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+			</if>
+			<if test="(receivableStatus != null) and (!''.equals(receivableStatus))">
+				AND tmp.receivableStatus LIKE CONCAT('%', #{receivableStatus} ,'%')
+			</if>
+		</where>
+		ORDER BY tmp.orderId DESC
+	</select>
+	
+	<select id="receivableDetail" resultType="kr.happyjob.study.sales.model.ReceivableModel">
+    	SELECT
+			od.id AS orderId
+			, od.emp_id AS empId
+			, od.order_date AS orderDate
+			, od.delivery_date AS deliveryDate
+			, (
+				SELECT dc.detail_name 
+				FROM tb_detail_code dc 
+				WHERE dc.detail_code = od.department_code
+			) AS departmentName
+			, od.total_delivery_count AS totalDeliveryCount
+			, od.total_tax AS totalTax
+			, (
+				SELECT rc.receivable_status
+				FROM tb_receivable rc
+				WHERE od.id = rc.order_id
+				ORDER BY rc.id ASC
+				LIMIT 1
+			) AS receivableStatus
+			, od.total_supply_price AS totalSupplyPrice
+			, od.deposit_amount AS depositAmount
+			, od.receivable_amount AS totalReceivableAmount
+			, cl.id AS clientId
+			, cl.client_name AS clientName
+			, cl.person AS person
+			, cl.person_ph AS personPh
+			, (
+				SELECT rc.manager_name AS managerName
+				FROM tb_receivable rc
+				WHERE od.id = rc.order_id
+				ORDER BY rc.id ASC
+				LIMIT 1
+			) AS managerName
+			, (
+				SELECT voucher_no AS voucherNo
+				FROM tb_voucher
+				WHERE order_id = #{orderId}
+				AND crebit_code = 'AC01101' 
+			) AS voucherNo
+		FROM tb_order od
+		LEFT JOIN tb_client cl
+		ON od.client_id = cl.id
+		WHERE od.id = #{orderId}
+	</select>
+	
+	<select id="receivableDetailList" resultType="kr.happyjob.study.sales.model.ReceivableModel">
+    	SELECT 
+			rc.order_id
+			, rc.product_id AS productId
+			, rc.id AS receivableId
+			, (
+				SELECT name AS productName 
+				FROM tb_manufacturer_product 
+				WHERE id = rc.product_id
+			) AS productName
+			, op.quantity AS quantity
+			, op.supply_price AS supplyPrice
+			, op.unit_price AS unitPrice
+			, (op.quantity * op.supply_price) AS totalSupplyPrice
+		FROM tb_receivable rc
+		LEFT JOIN tb_order_product op
+		ON 
+			rc.order_id = op.order_id 
+			AND rc.product_id = op.product_id
+		WHERE rc.history_status = 'N'
+		AND rc.order_id = #{orderId}
+		LIMIT #{startSeq}, #{pageSize}
+	</select>
+	
+	<select id="receivableDetailListCnt" resultType="int">
+		SELECT 
+			COUNT(od.id)
+		FROM tb_order_product op
+		LEFT JOIN tb_order od
+		ON 
+			od.id = op.order_id 
+		WHERE od.id = #{orderId}
+	</select>
+	
+	<insert id="insertReceivableHistory">
+		<selectKey resultType="int" keyProperty="seq" order="BEFORE">
+			SELECT IFNULL(max(id), 0) + 1 FROM tb_receivable
+		</selectKey>
+		INSERT INTO tb_receivable 
+		(
+			  id
+			, order_id
+			, client_id
+			, emp_id
+			, unpaid_amount
+			, deposit_amount
+			, department
+			, modify_date
+			, client_name
+			, product_id
+			, order_date
+			, receivable_status
+			, manager_name
+			, history_status
+			, debit_code
+			, crebit_code
+		) VALUES (
+			  #{seq}
+			, #{orderId}
+			, #{clientId}
+			, #{empId}
+			, #{unpaidAmount}
+			, #{depositAmount}
+			, ''
+			, NOW()
+			, (SELECT client_name FROM tb_client WHERE id = #{clientId})
+			, null
+			, IFNULL(#{orderDate}, NOW())
+			, ''
+			, #{managerName}
+			, 'Y'
+			, 'AC05101'
+			, 'AC01105'
+		)
+	</insert>
+	
+	<update id="updateReceivable">
+		UPDATE tb_order
+		SET receivable_amount = #{unpaidAmount}
+		WHERE id = #{orderId}
+	</update>
+	
+	<update id="updateReceivableStatus">
+		UPDATE tb_receivable
+		SET receivable_status = 'Y'
+		WHERE order_id = #{orderId}
+	</update>
+	
+</mapper>

@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.sales.dao.SalesDao">
+
+	<select id="getSalesById" resultType="kr.happyjob.study.sales.model.SalesModel">
+        SELECT * FROM tb_receivable WHERE id = #{id}
+    </select>
+    
+	<select id="dailyList" resultType="kr.happyjob.study.sales.model.SalesModel">
+		SELECT *
+		FROM
+		(
+			SELECT 
+				  od.order_date AS salesDate
+			    , '수입' AS type
+			    , od.client_id AS clientId
+			    , (
+			    	SELECT cl.client_name
+			    	FROM tb_client cl
+			    	WHERE cl.id = od.client_id
+			    ) AS clientName
+				, od.sales_area AS debitCode
+				, '매출' AS crebitCode
+			    , od.deposit_amount AS totalSupplyPrice
+			    , 0 AS totalExpenseAmount
+			    , 0 AS totalReceivableAmount
+			FROM tb_order od
+			WHERE od.order_date BETWEEN DATE_SUB(#{orderDate}, INTERVAL 5 DAY) AND #{orderDate}
+			AND od.total_supply_price != 0
+			
+			UNION ALL
+			
+			SELECT 
+				  ep.use_date AS salesDate
+			    , '지출' AS type
+			    , ep.client_id AS clientId
+			    , (
+			    	SELECT cl.client_name
+			    	FROM tb_client cl
+			    	WHERE cl.id = ep.client_id
+			    ) AS clientName
+				, (SELECT dc.detail_name FROM tb_detail_code dc WHERE dc.detail_code = ep.debit_code)  AS debitCode
+				, (SELECT dc.detail_name FROM tb_detail_code dc WHERE dc.detail_code = ep.crebit_code) AS crebitCode
+			    , 0 AS totalSupplyPrice
+			    , expense_payment AS totalExpenseAmount 
+			    , 0 AS totalReceivableAmount
+			FROM tb_expense ep
+			WHERE ep.use_date BETWEEN DATE_SUB(#{orderDate}, INTERVAL 5 DAY) AND #{orderDate}
+			AND ep.expense_payment != 0
+			AND ep.is_approval = 'S'
+			
+			UNION ALL
+			
+			SELECT 
+				  rc.modify_date AS salesDate
+			    , '미수금' AS type
+			    , rc.client_id AS clientId
+			    , (
+			    	SELECT cl.client_name
+			    	FROM tb_client cl
+			    	WHERE cl.id = rc.client_id
+			    ) AS clientName
+				, (SELECT dc.detail_name FROM tb_detail_code dc WHERE dc.detail_code = rc.debit_code) AS debitCode
+				, (SELECT dc.detail_name FROM tb_detail_code dc WHERE dc.detail_code = rc.crebit_code) AS crebitCode
+			    , 0 AS totalSupplyPrice
+			    , 0 AS totalExpenseAmount
+			    , rc.unpaid_amount AS totalReceivableAmount
+			FROM tb_receivable rc
+			JOIN (
+			    SELECT modify_date, client_id, MAX(id) AS max_id
+			    FROM tb_receivable
+			    WHERE modify_date BETWEEN DATE_SUB('2025-02-18', INTERVAL 5 DAY) AND '2025-02-18'
+			    AND unpaid_amount != 0
+			    AND history_status = 'Y'
+			    GROUP BY modify_date, client_id
+			) max_rc
+			ON rc.modify_date = max_rc.modify_date 
+			AND rc.client_id = max_rc.client_id
+			AND rc.id = max_rc.max_id
+		) AS tmp
+		<where>
+			<if test="(clientId != null) and (!''.equals(clientId))">
+				AND tmp.clientId = #{clientId}
+			</if>
+		</where>
+		ORDER BY salesDate DESC, clientId DESC
+		LIMIT #{startSeq}, #{pageSize}
+    </select>
+    
+    <select id="dailyListCnt" resultType="int">
+		SELECT COUNT(salesDate)
+		FROM (
+			SELECT 
+				  od.order_date AS salesDate
+				, od.client_id AS clientId
+			FROM tb_order od
+			WHERE od.order_date BETWEEN DATE_SUB(#{orderDate}, INTERVAL 5 DAY) AND #{orderDate}
+			AND od.total_supply_price != 0
+			
+			UNION ALL
+			
+			SELECT 
+				  ep.use_date AS salesDate
+				, ep.client_id AS clientId
+			FROM tb_expense ep
+			WHERE ep.use_date BETWEEN DATE_SUB(#{orderDate}, INTERVAL 5 DAY) AND #{orderDate}
+			AND ep.expense_payment != 0
+			
+			UNION ALL
+			
+			SELECT 
+				  rc.order_date AS salesDate
+				, rc.client_id AS clientId
+			FROM tb_receivable rc
+			WHERE rc.order_date BETWEEN DATE_SUB(#{orderDate}, INTERVAL 5 DAY) AND #{orderDate}
+			AND rc.unpaid_amount != 0
+			AND rc.history_status = 'Y'
+		) AS tmp
+		<where>
+			<if test="(clientId != null) and (!''.equals(clientId))">
+				AND tmp.clientId = #{clientId}
+			</if>
+		</where>
+	</select>
+    
+    <select id="dailyListChart" resultType="kr.happyjob.study.sales.model.SalesModel">
+    	SELECT 
+			tmp.date AS salesDate,
+			od.total_price AS totalSupplyPrice,
+			rc.unpaid_amount AS totalReceivableAmount,
+			ep.expense_payment AS totalExpenseAmount
+		FROM (
+			SELECT order_date AS date
+			FROM tb_order
+			WHERE 
+				order_date BETWEEN DATE_SUB(#{orderDate}, INTERVAL 5 DAY) AND #{orderDate}
+				<if test="(clientId != null) and (!''.equals(clientId))">
+					AND client_id = #{clientId}
+				</if>
+			UNION 
+			SELECT order_date
+			FROM tb_order
+			WHERE 
+				order_date BETWEEN DATE_SUB(#{orderDate}, INTERVAL 5 DAY) AND #{orderDate}
+				<if test="(clientId != null) and (!''.equals(clientId))">
+					AND client_id = #{clientId}
+				</if>
+			UNION 
+			SELECT use_date
+			FROM tb_expense
+			WHERE 
+				use_date BETWEEN DATE_SUB(#{orderDate}, INTERVAL 5 DAY) AND #{orderDate}
+				<if test="(clientId != null) and (!''.equals(clientId))">
+					AND client_id = #{clientId}
+				</if>
+		) tmp
+		LEFT JOIN (
+			SELECT order_date, SUM(deposit_amount) AS total_price
+			FROM tb_order
+			<where>
+				<if test="(clientId != null) and (!''.equals(clientId))">
+					AND client_id = #{clientId}
+				</if>
+			</where>
+			GROUP BY order_date
+		) od ON tmp.date = od.order_date
+		LEFT JOIN (
+			SELECT order_date, SUM(receivable_amount) AS unpaid_amount
+			FROM tb_order
+			<where>
+				<if test="(clientId != null) and (!''.equals(clientId))">
+					AND client_id = #{clientId}
+				</if>
+			</where>
+			GROUP BY order_date
+		) rc ON tmp.date = rc.order_date
+		LEFT JOIN (
+			SELECT use_date, SUM(expense_payment) AS expense_payment
+			FROM tb_expense
+			<where>
+				<if test="(clientId != null) and (!''.equals(clientId))">
+					AND client_id = #{clientId}
+				</if>
+			</where>
+			GROUP BY use_date
+		) ep ON tmp.date = ep.use_date
+		ORDER BY tmp.date ASC
+    </select>
+    
+    <select id="dailyStatistics" resultType="kr.happyjob.study.sales.model.SalesModel">
+    	SELECT 
+		    SUM(tmp.totalSupplyPrice) AS totalSupplyPrice,
+		    SUM(tmp.totalExpenseAmount) AS totalExpenseAmount
+		FROM (
+		    -- 수입 데이터
+		    SELECT 
+		        od.client_id AS clientId,
+		        od.deposit_amount AS totalSupplyPrice,
+		        0 AS totalExpenseAmount
+		    FROM tb_order od
+		    WHERE od.order_date BETWEEN DATE_SUB('2025-02-18', INTERVAL 5 DAY) AND '2025-02-18'
+		    AND od.total_supply_price != 0
+		
+		    UNION ALL
+		
+		    -- 지출 데이터
+		    SELECT 
+		        ep.client_id AS clientId,
+		        0 AS totalSupplyPrice,
+		        ep.expense_payment AS totalExpenseAmount
+		    FROM tb_expense ep
+		    WHERE ep.use_date BETWEEN DATE_SUB('2025-02-18', INTERVAL 5 DAY) AND '2025-02-18'
+		    AND ep.expense_payment != 0
+		) AS tmp
+		<where>
+			<if test="(clientId != null) and (!''.equals(clientId))">
+				AND tmp.clientId = #{clientId}
+			</if>
+		</where>
+    </select>
+    
+    <select id="monthlyList" resultType="kr.happyjob.study.sales.model.SalesModel">
+    	SELECT 
+		    tmp.orderDate AS orderDate,
+		    SUM(tmp.orderCount) AS orderCount,
+		    SUM(tmp.totalSupplyPrice) AS totalSupplyPrice,
+		    SUM(tmp.totalUnitPrice) AS totalUnitPrice,
+		    SUM(tmp.totalReceivableAmount) AS totalReceivableAmount,
+		    SUM(tmp.totalExpenseAmount) AS totalExpenseAmount
+		FROM (
+		    SELECT 
+		        DATE_FORMAT(order_date, '%Y-%m') AS orderDate,
+		        COUNT(id) AS orderCount,
+		        SUM(total_supply_price) AS totalSupplyPrice,
+		        SUM(total_unit_price) AS totalUnitPrice,
+		        SUM(receivable_amount) AS totalReceivableAmount,
+		        0 AS totalExpenseAmount
+		    FROM tb_order
+		    WHERE DATE_FORMAT(order_date, '%Y-%m') BETWEEN #{searchStDate} AND #{searchEdDate}
+		    GROUP BY orderDate
+		    
+		    UNION ALL
+		    SELECT 
+		        DATE_FORMAT(use_date, '%Y-%m') AS orderDate,
+		        0 AS orderCount,
+		        0 AS totalSupplyPrice,
+		        0 AS totalUnitPrice,
+		        0 AS totalReceivableAmount,
+		        SUM(expense_payment) AS totalExpenseAmount
+		    FROM tb_expense
+		    WHERE 
+		        DATE_FORMAT(use_date, '%Y-%m') BETWEEN #{searchStDate} AND #{searchEdDate}
+		        AND is_approval = 'S'
+		    GROUP BY orderDate
+		) AS tmp
+		GROUP BY orderDate
+		ORDER BY orderDate DESC
+    </select>
+    
+    <select id="monthlyTopProduct" resultType="map">
+		SET @rownum = 0;
+		SELECT
+			@rownum := @rownum + 1 AS RNUM
+			, tmp.productName AS topTitle
+			, tmp.totalSupplyPrice AS totalSupplyPrice
+		FROM (
+			SELECT
+				(
+					SELECT mp.name
+					FROM tb_manufacturer_product mp
+					WHERE op.product_id = mp.id
+				) AS productName
+				, SUM(op.supply_price * op.quantity) AS totalSupplyPrice
+			FROM tb_order od
+			LEFT JOIN tb_order_product op ON od.id = op.order_id
+			WHERE 
+				DATE_FORMAT(od.order_date, '%Y-%m') BETWEEN #{searchStDate} AND #{searchEdDate}
+			GROUP BY productName
+			ORDER BY totalSupplyPrice DESC
+			LIMIT 5
+		) tmp
+    </select>
+    
+    <select id="monthlyTopClient" resultType="map">
+		SET @rownum = 0;
+		SELECT
+			@rownum := @rownum + 1 AS RNUM
+			, tmp.clientName AS topTitle
+			, tmp.totalSupplyPrice AS totalSupplyPrice
+		FROM
+		(
+			SELECT 
+				client_name AS clientName,
+				SUM(total_supply_price) AS totalSupplyPrice
+			FROM tb_order
+			WHERE DATE_FORMAT(order_date, '%Y-%m') BETWEEN #{searchStDate} AND #{searchEdDate}
+			GROUP BY client_name
+			ORDER BY totalSupplyPrice DESC
+			LIMIT 5
+		) tmp
+    </select>
+    
+    <select id="annualList" resultType="kr.happyjob.study.sales.model.SalesModel">
+    	SELECT 
+		    tmp.orderDate AS orderDate,
+		    SUM(tmp.orderCount) AS orderCount,
+		    SUM(tmp.totalSupplyPrice) AS totalSupplyPrice,
+		    SUM(tmp.totalUnitPrice) AS totalUnitPrice,
+		    SUM(tmp.totalReceivableAmount) AS totalReceivableAmount,
+		    SUM(tmp.totalExpenseAmount) AS totalExpenseAmount
+		FROM (
+		    SELECT 
+		        DATE_FORMAT(order_date, '%Y') AS orderDate,
+		        COUNT(id) AS orderCount,
+		        SUM(total_supply_price) AS totalSupplyPrice,
+		        SUM(total_unit_price) AS totalUnitPrice,
+		        SUM(receivable_amount) AS totalReceivableAmount,
+		        0 AS totalExpenseAmount
+		    FROM tb_order
+		    WHERE DATE_FORMAT(order_date, '%Y') BETWEEN #{searchStDate} AND #{searchEdDate}
+		    GROUP BY orderDate
+		    
+		    UNION ALL
+		    SELECT 
+		        DATE_FORMAT(use_date, '%Y') AS orderDate,
+		        0 AS orderCount,
+		        0 AS totalSupplyPrice,
+		        0 AS totalUnitPrice,
+		        0 AS totalReceivableAmount,
+		        SUM(expense_payment) AS totalExpenseAmount
+		    FROM tb_expense
+		    WHERE 
+		        DATE_FORMAT(use_date, '%Y') BETWEEN #{searchStDate} AND #{searchEdDate}
+		        AND is_approval = 'S'
+		    GROUP BY orderDate
+		) AS tmp
+		GROUP BY orderDate
+		ORDER BY orderDate DESC
+    </select>
+    
+    <select id="annualTopProduct" resultType="map">
+		SET @rownum = 0;
+		SELECT
+			@rownum := @rownum + 1 AS RNUM
+			, tmp.productName AS topTitle
+			, tmp.totalSupplyPrice AS totalSupplyPrice
+		FROM (
+			SELECT
+				(
+					SELECT mp.name
+					FROM tb_manufacturer_product mp
+					WHERE op.product_id = mp.id
+				) AS productName
+				, SUM(op.supply_price * op.quantity) AS totalSupplyPrice
+			FROM tb_order od
+			LEFT JOIN tb_order_product op ON od.id = op.order_id
+			WHERE 
+				DATE_FORMAT(od.order_date, '%Y') BETWEEN #{searchStDate} AND #{searchEdDate}
+			GROUP BY productName
+			ORDER BY totalSupplyPrice DESC
+			LIMIT 5
+		) tmp
+    </select>
+    
+    <select id="annualTopClient" resultType="map">
+		SET @rownum = 0;
+		SELECT
+			@rownum := @rownum + 1 AS RNUM
+			, tmp.clientName AS topTitle
+			, tmp.totalSupplyPrice AS totalSupplyPrice
+		FROM
+		(
+			SELECT 
+				client_name AS clientName,
+				SUM(total_supply_price) AS totalSupplyPrice
+			FROM tb_order
+			WHERE DATE_FORMAT(order_date, '%Y') BETWEEN #{searchStDate} AND #{searchEdDate}
+			GROUP BY client_name
+			ORDER BY totalSupplyPrice DESC
+			LIMIT 5
+		) tmp
+    </select>
+    
+</mapper>

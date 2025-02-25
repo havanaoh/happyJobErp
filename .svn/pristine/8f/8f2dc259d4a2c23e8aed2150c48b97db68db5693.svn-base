@@ -1,0 +1,461 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.personnel.dao.AttendanceDao">
+    
+    <select id="attendanceCnt" resultType="kr.happyjob.study.personnel.model.AttendanceModel">        
+		SELECT
+			  id
+			, att_cnt as attCnt
+			, use_att_cnt useAttCnt
+			, (att_cnt - use_att_cnt) as leftAttCnt
+		FROM tb_attendance
+		WHERE emp_id = #{userIdx}
+    </select>
+    
+    <update id="attendanceUseCnt">
+ 		UPDATE tb_attendance att
+		LEFT JOIN tb_attendance_request attRe
+		ON att.id = attRe.att_id
+		SET  att.use_att_cnt  = (SELECT IFNULL(SUM(req_day), 0)
+								FROM tb_attendance_request
+								WHERE req_status = 'S'
+								AND req_ed <![CDATA[<=]]> CURDATE()
+								AND emp_id = #{userIdx})
+		WHERE att.emp_id = #{userIdx}
+ 	</update>
+ 	
+    <select id="attendanceRequestList" resultType="kr.happyjob.study.personnel.model.AttendanceRequestModel">        
+		SELECT 
+				  id
+				, reqType
+				, `number`
+				, name
+				, reqSt
+				, reqEd
+				, reqStatus	
+				, appType
+				, appReason
+				, empId
+				, attId
+		FROM (
+				SELECT 
+					  attre.id 
+					, attre.req_type as reqType
+					, emp.`number`
+					, emp.name
+					, attre.req_st as reqSt
+					, attre.req_ed as reqEd
+					, attre.req_status	
+					, CASE attre.req_status
+				   	    WHEN 'W' THEN '검토 대기'
+				       	WHEN 'F' THEN '승인 대기'
+				        WHEN 'S' THEN '승인'
+				        WHEN 'N' THEN '반려'
+				        WHEN 'C' THEN '취소'
+				   	    ELSE '알 수 없음'
+					      END AS reqStatus
+					, emp2.user_type 
+					, CASE emp2.user_type
+						WHEN 'C' THEN '경영진'
+						WHEN 'A' THEN '회계부'
+						END AS appType
+					, attapp.app_Reason as appReason
+					, attre.emp_id as empId
+					, attre.att_id as attId
+				FROM tb_attendance_request attre  
+				INNER JOIN tb_emp emp  
+				ON attre.emp_id = emp.id
+				LEFT JOIN tb_attendance_approval attapp
+				ON attre.id = attapp.req_id
+				LEFT JOIN tb_emp emp2
+				ON emp2.id = IFNULL(attapp.app2_id, attapp.app_id)
+				) as attendance
+		<where>
+	        <if test="userIdx != null and userIdx != ''" >
+	            empId = #{userIdx}
+	        </if>
+	        <if test="searchStDate != null and searchStDate != ''">
+	            AND reqSt <![CDATA[>=]]> STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+	        </if>
+	        <if test="searchEdDate != null and searchEdDate != ''">
+	            AND reqSt <![CDATA[<=]]> STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+	        </if>
+	        <if test="searchReqType != null and searchReqType != '' and searchReqType != '전체'">
+	            AND reqType = #{searchReqType}
+	        </if>
+	        <if test="searchNumber != null and searchNumber != '' and searchNumber != '전체'">
+	            AND `number` = #{searchNumber}
+	        </if>
+	        <if test="(searchName != null) and (searchName != '') and (searchName != '전체')">
+	            AND name LIKE CONCAT('%', #{searchName}, '%')
+	        </if>
+	        <if test="searchReqStatus != null and searchReqStatus != '' and searchReqStatus != '전체'">
+	            AND reqStatus = #{searchReqStatus}
+	        </if>        
+   		</where>
+   		ORDER BY id DESC
+		LIMIT #{startSeq}, #{pageSize}
+    </select>
+    
+    <select id="attendanceRequestCnt" resultType="int">        
+		SELECT 
+				count(id)
+		FROM (
+				SELECT 
+					  attre.id 
+					, attre.req_type as reqType
+					, emp.`number`
+					, emp.name
+					, attre.req_st as reqSt
+					, attre.req_ed as reqEd
+					, attre.req_status	
+					, CASE attre.req_status
+				   	    WHEN 'W' THEN '검토 대기'
+				       	WHEN 'F' THEN '승인 대기'
+				        WHEN 'S' THEN '승인'
+				        WHEN 'N' THEN '반려'
+				        WHEN 'C' THEN '취소'
+				   	    ELSE '알 수 없음'
+					      END AS reqStatus
+					, emp2.user_type 
+					, CASE emp2.user_type
+						WHEN 'C' THEN '경영진'
+						WHEN 'A' THEN '회계부'
+						END AS appType
+					, attapp.app_Reason as appReason
+					, attre.emp_id as empId
+					, attre.att_id as attId
+				FROM tb_attendance_request attre  
+				INNER JOIN tb_emp emp  
+				ON attre.emp_id = emp.id
+				LEFT JOIN tb_attendance_approval attapp
+				ON attre.id = attapp.req_id
+				LEFT JOIN tb_emp emp2
+				ON emp2.id = IFNULL(attapp.app2_id, attapp.app_id)
+				) as attendance
+		<where>
+	        <if test="userIdx != null and userIdx != ''" >
+	            empId = #{userIdx}
+	        </if>
+	        <if test="searchStDate != null and searchStDate != ''">
+	            AND reqSt <![CDATA[>=]]> STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+	        </if>
+	        <if test="searchEdDate != null and searchEdDate != ''">
+	            AND reqEd <![CDATA[<=]]> STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+	        </if>
+	        <if test="searchReqType != null and searchReqType != '' and searchReqType != '전체'">
+	            AND reqType = #{searchReqType}
+	        </if>
+	        <if test="searchNumber != null and searchNumber != '' and searchNumber != '전체'">
+	            AND `number` = #{searchNumber}
+	        </if>
+	        <if test="(searchName != null) and (searchName != '') and (searchName != '전체')">
+	            AND name LIKE CONCAT('%', #{searchName}, '%')
+	        </if>
+	        <if test="searchReqStatus != null and searchReqStatus != '' and searchReqStatus != '전체'">
+	            AND reqStatus = #{searchReqStatus}
+	        </if>        
+   		</where>
+    </select>
+    
+    <select id="attendanceRequestDetail" resultType="kr.happyjob.study.personnel.model.AttendanceRequestModel">
+		SELECT 
+				  id
+				, reqType
+				, `number`
+				, name
+				, reqSt
+				, reqEd
+				, reqStatus	
+				, appType
+				, appReason
+				, empId
+				, deptName
+				, reqTel
+				, reqReason
+				, reqdate
+				, candate
+				, attId
+				, attAppId
+		FROM (
+				SELECT 
+					  attre.id 
+					, attre.req_type as reqType
+					, emp.`number`
+					, emp.name
+					, detail.detail_name as deptName
+					, attre.req_st as reqSt
+					, attre.req_ed as reqEd
+					, attre.req_status	
+					, CASE attre.req_status
+				   	    WHEN 'W' THEN '검토 대기'
+				       	WHEN 'F' THEN '승인 대기'
+				        WHEN 'S' THEN '승인'
+				        WHEN 'N' THEN '반려'
+				        WHEN 'C' THEN '취소'
+				   	    ELSE '알 수 없음'
+					      END AS reqStatus
+					, attre.req_tel as reqTel      
+					, emp2.user_type 
+					, CASE emp2.user_type
+						WHEN 'C' THEN '경영진'
+						WHEN 'A' THEN '회계부'
+						END AS appType
+					, attapp.app_Reason as appReason
+					, attre.emp_id as empId
+					, attre.req_reason as reqReason
+					, attre.reqdate
+					, attre.candate
+					, attre.att_id as attId
+					, attapp.id as attAppId
+				FROM tb_attendance_request attre  
+				INNER JOIN tb_emp emp  
+				ON attre.emp_id = emp.id
+				LEFT JOIN tb_attendance_approval attapp
+				ON attre.id = attapp.req_id
+				LEFT JOIN tb_emp emp2
+				ON emp2.id = IFNULL(attapp.app2_id, attapp.app_id)
+				LEFT JOIN tb_detail_code detail
+				ON detail.detail_code = emp.department_code
+				) as attendance
+		WHERE id = #{id}
+	</select>
+	
+	<select id="approveDetailList" resultType="kr.happyjob.study.personnel.model.AttendanceRequestModel">
+		SELECT    
+				  dcode.detail_name as deptName
+				, emp.name as name
+				, attRe.req_type as reqType							
+		FROM tb_emp emp
+		JOIN tb_detail_code dcode
+		ON emp.department_code = dcode.detail_code
+		JOIN tb_attendance_request attRe
+		ON emp.id = attRe.emp_id
+		<if test="searchStDate != null and searchStDate != ''">
+            AND attRe.req_st = STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+        </if>
+        <if test="req_status != null and req_status != '' and req_status != '전체'">
+            AND attRe.req_status = #{req_status}
+        </if>
+	</select>
+	
+	<select id="userInfo" resultType="kr.happyjob.study.login.model.LgnInfoModel">
+		SELECT
+			  emp.`number`  as usr_idx
+			, emp.name as usr_nm
+			, d.detail_name as detail_name
+		FROM tb_emp emp
+		JOIN tb_detail_code d
+		ON emp.department_code = d.detail_code
+		WHERE emp.login_id = #{loginId}
+	</select>		
+	
+	<insert id="attendanceRequest">
+		<selectKey resultType="int" keyProperty="id" order="BEFORE">
+			SELECT IFNULL(max(id), 0) + 1 FROM tb_attendance_request
+		</selectKey>
+		INSERT INTO tb_attendance_request
+		(
+			  id
+			, att_id
+			, emp_id  
+			, req_type
+			, req_st
+			, req_ed
+			, req_reason
+			, req_tel
+			, reqdate
+			, req_day
+			, req_status
+		) VALUES
+		(
+			  #{id}
+			, #{attId}
+			, #{empId}  
+			, #{reqType}
+			, #{reqSt}
+			, #{reqEd}
+			, #{reqReason}
+			, #{reqTel}
+			, now()
+			, #{reqDay}
+			, 'W'
+		)
+		
+	</insert>
+	
+	<update id="attendanceRequestUpdate">		
+		UPDATE tb_attendance_request
+		SET
+			  req_st = #{reqSt}
+			, req_ed = #{reqEd}
+			, req_reason = #{reqReason}			
+			, req_tel = #{reqTel}
+			, reqdate = now()
+		WHERE id = #{reqId}
+	</update>
+	
+	<update id="attendanceRequestCancle">
+		UPDATE tb_attendance_request
+		SET
+			  candate = now()
+			, req_status = 'C'
+		WHERE id = #{reqId}
+	</update>
+	
+	<insert id="attendanceFirstApprove">
+		<selectKey resultType="int" keyProperty="id" order="BEFORE">
+			SELECT IFNULL(max(id), 0) + 1 FROM tb_attendance_approval
+		</selectKey>
+		INSERT INTO tb_attendance_approval
+			(	
+				  id
+				, req_id
+				, app_status
+				, app_id
+				, app_date
+				, app_reason
+			) VALUES
+			(
+				  #{id}
+				, #{reqId}
+				, 'F'
+				, #{userIdx}
+				, now()
+				, #{appReason}  
+			)
+	</insert>
+	
+	<update id="attendanceRequestApproveUpdate">
+    	UPDATE tb_attendance_request 
+    	SET req_status = CASE 
+        	WHEN (SELECT app2_id 
+              FROM tb_attendance_approval 
+              WHERE req_id = #{reqId} 
+              LIMIT 1) IS NULL THEN 'F' 
+        	ELSE 'S' 
+    		END
+    	WHERE id = #{reqId}
+	</update>
+	<!--  대기상태에서 반려 -->
+	<insert id="attendanceReject">
+		<selectKey resultType="int" keyProperty="id" order="BEFORE">
+			SELECT IFNULL(max(id), 0) + 1 FROM tb_attendance_approval
+		</selectKey>
+		INSERT INTO tb_attendance_approval
+			(	
+				  id
+				, req_id
+				, app_status
+				, app_id
+				, app_date
+				, app_reason
+			) VALUES
+			(
+				  #{id}
+				, #{reqId}
+				, 'N'
+				, #{userIdx}
+				, now()
+				, #{appReason}
+			)
+	</insert>
+	<!-- 1차 승인 후 반려 -->
+ 	<update id="attendanceApproveReject">
+ 		UPDATE tb_attendance_approval
+ 		SET   app_status = 'N'
+ 			, app_updated = now()
+ 			, app2_id = #{userIdx}
+ 			, app_reason = #{appReason}
+ 		WHERE id = #{id}
+ 	</update>
+ 	
+ 	<!-- 반려 후 신청 테이블 상태 업데이트 -->
+ 	<update id="attendanceRequestRejectUpdate">
+ 		UPDATE tb_attendance_request attRe
+ 		SET req_status = 'N'
+ 		WHERE id = #{reqId}
+ 	</update>
+ 	
+ 	
+ 	<update id="attendanceSecondApprove">
+ 		UPDATE tb_attendance_approval
+ 		SET   app2_id = #{userIdx}
+ 			, app_status = 'S'
+ 			, app_updated = now()
+ 		WHERE req_id = #{reqId}	
+ 	</update> 
+ 	
+ 	 <select id="attendanceRequestCalendar" resultType="kr.happyjob.study.personnel.model.AttendanceRequestModel">        
+		SELECT 
+				  id
+				, reqType
+				, `number`
+				, name
+				, reqSt
+				, reqEd
+				, reqStatus	
+				, appType
+				, appReason
+				, empId
+				, attId
+		FROM (
+				SELECT 
+					  attre.id 
+					, attre.req_type as reqType
+					, emp.`number`
+					, emp.name
+					, attre.req_st as reqSt
+					, attre.req_ed as reqEd
+					, attre.req_status	
+					, CASE attre.req_status
+				   	    WHEN 'W' THEN '검토 대기'
+				       	WHEN 'F' THEN '승인 대기'
+				        WHEN 'S' THEN '승인'
+				        WHEN 'N' THEN '반려'
+				        WHEN 'C' THEN '취소'
+				   	    ELSE '알 수 없음'
+					      END AS reqStatus
+					, emp2.user_type 
+					, CASE emp2.user_type
+						WHEN 'C' THEN '경영진'
+						WHEN 'A' THEN '회계부'
+						END AS appType
+					, attapp.app_Reason as appReason
+					, attre.emp_id as empId
+					, attre.att_id as attId
+				FROM tb_attendance_request attre  
+				INNER JOIN tb_emp emp  
+				ON attre.emp_id = emp.id
+				LEFT JOIN tb_attendance_approval attapp
+				ON attre.id = attapp.req_id
+				LEFT JOIN tb_emp emp2
+				ON emp2.id = IFNULL(attapp.app2_id, attapp.app_id)
+				) as attendance
+		<where>
+        <if test="userIdx != null and userIdx != ''" >
+            empId = #{userIdx}
+        </if>
+        <if test="searchStDate != null and searchStDate != ''">
+            AND reqSt <![CDATA[>=]]> STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+        </if>
+        <if test="searchEdDate != null and searchEdDate != ''">
+            AND reqEd <![CDATA[<=]]> STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+        </if>
+        <if test="searchReqType != null and searchReqType != '' and searchReqType != '전체'">
+            AND reqType = #{searchReqType}
+        </if>
+        <if test="searchNumber != null and searchNumber != '' and searchNumber != '전체'">
+            AND `number` = #{searchNumber}
+        </if>
+        <if test="searchName != null and searchName != '' and searchName != '전체'">
+            AND name = #{searchName}
+        </if>
+        <if test="searchReqStatus != null and searchReqStatus != '' and searchReqStatus != '전체'">
+            AND reqStatus = #{searchReqStatus}
+        </if>        
+   		</where>
+    </select>
+ 	
+ 	
+</mapper>

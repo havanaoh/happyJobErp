@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.account.dao.AccountDao">
+
+	<select id="getAccountList" resultType="kr.happyjob.study.account.model.AccountModel">
+		SELECT
+		tg.group_name as group_name
+		,td.group_code as group_code
+		,td.detail_code as detail_code
+		,td.detail_name as detail_name
+		,td.use_yn as use_yn
+		,td.content as content
+		,td.code_type as code_type
+		FROM
+		tb_group_code as tg
+		INNER JOIN tb_detail_code as td
+		ON
+		tg.group_code = td.group_code
+		WHERE reference_code = 'AC'
+			<if test="(searchGroup != null) and (!''.equals(searchGroup))">
+				AND tg.group_code = #{searchGroup}
+			</if>
+			<if test="(searchDetail != null) and (!''.equals(searchDetail))">
+				AND td.detail_code = #{searchDetail}
+			</if>
+			<if test="(searchCode_type != null) and (!''.equals(searchCode_type))">
+				AND td.code_type = #{searchCode_type} 
+			</if>
+			<if test="(searchUse_yn != null) and (!''.equals(searchUse_yn))">
+				AND td.use_yn = #{searchUse_yn}
+			</if>
+			ORDER BY td.reg_date DESC
+		LIMIT #{startSeq}, #{pageSize}
+	</select>
+
+	<select id="getAccountListCnt" resultType="int">
+		SELECT
+		count(td.detail_code)
+		FROM
+		tb_group_code as tg
+		INNER JOIN tb_detail_code as td
+		ON
+		tg.group_code = td.group_code
+		WHERE reference_code = 'AC'
+			<if test="(searchGroup != null) and (!''.equals(searchGroup))">
+				AND tg.group_code = #{searchGroup}
+			</if>
+			<if test="(searchDetail != null) and (!''.equals(searchDetail))">
+				AND td.detail_code = #{searchDetail}
+			</if>
+			<if test="(searchCode_type != null) and (!''.equals(searchCode_type))">
+				AND td.code_type = #{searchCode_type} 
+			</if>
+			<if test="(searchUse_yn != null) and (!''.equals(searchUse_yn))">
+				AND td.use_yn = #{searchUse_yn}
+			</if>
+	</select>
+	
+	<select id="accountSearchList" resultType="kr.happyjob.study.account.model.AccountModel">
+		SELECT
+		DISTINCT tdc.detail_code as detail_code
+		,tdc.detail_name as detail_name
+		FROM
+		tb_detail_code tdc			
+		<if test="(group_code != null) and (!''.equals(group_code))">
+				WHERE tdc.group_code = #{group_code}
+		</if>
+		<if test="(group_code == null) or (''.equals(group_code))">
+		INNER JOIN tb_group_code tg
+		ON
+			tdc.group_code = tg.group_code	
+			WHERE reference_code = 'AC'		
+		</if>		
+	</select>
+	
+	<select id="accountGroupList" resultType="kr.happyjob.study.account.model.AccountModel">
+		SELECT
+		DISTINCT group_code	
+		,group_name	
+		FROM
+		tb_group_code		
+		WHERE reference_code = 'AC'
+	</select>
+	
+	<insert id="accountSave">
+		<selectKey resultType="string" keyProperty="seq" order="BEFORE">
+			SELECT CONCAT(IFNULL(group_code, CONCAT(#{group_code}, '101')), (MAX(SUBSTR(detail_code, 5)) + 1) ) FROM tb_detail_code WHERE group_code = #{group_code}
+		</selectKey>
+		INSERT INTO tb_detail_code
+		(
+			  detail_code
+			, group_code
+			, note
+			, reg_id
+			, reg_date
+			,detail_name
+			,use_Yn
+			,code_type
+			,content
+		) VALUES (
+			  #{seq}
+			, #{group_code}
+			, '계정세부코드'
+			, #{loginId}
+			, now()
+			, #{detail_name}
+			, #{use_Yn}
+			, #{code_type}
+			, #{content}
+		)
+	</insert>
+	
+	<update id="accountUpdate">
+		UPDATE tb_detail_code
+		SET
+			  detail_name = #{detail_name}
+			, use_Yn = #{use_Yn}
+			, code_type = #{code_type}
+			, content = #{content}
+			, update_id = now()
+		WHERE detail_code = #{detail_code}
+	</update>
+	
+	<delete id="accountDelete">
+		DELETE FROM tb_detail_code
+		WHERE detail_code = #{detail_code}
+	</delete>
+</mapper>

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.personnel.dao.PromotionDao">
+
+	<select id="promotionList" resultType="kr.happyjob.study.personnel.model.PromotionModel">
+		SELECT
+			  e.`number` as employeeNumber
+			, e.`name` as employeeName
+			, e.department_code as departmentCode
+			, d.detail_name as jobGrade
+			, h.created_at as createdAt
+			, t.detail_name as departmentDetailName
+			, h.emp_id as employeeId
+			, c.detail_name AS newJobGrade
+		FROM tb_job_grade_hist h
+		JOIN tb_emp e ON
+			h.emp_id = e.id
+		JOIN tb_detail_code d ON
+			h.job_grade = d.detail_code
+		JOIN tb_detail_code t ON
+			e.department_code = t.detail_code
+    	JOIN tb_detail_code c ON 
+    		h.new_job_grade = c.detail_code
+		<where>
+    		<if test="(searchId != null) and (!''.equals(searchId))">
+    			AND e.`number` LIKE CONCAT('%', #{searchId}, '%')
+    		</if>
+    		<if test="(searchName != null) and (!''.equals(searchName))">
+    			AND e.`name` LIKE CONCAT('%', #{searchName}, '%')
+    		</if>
+    		<if test="(searchRegDateStart != null) and (!''.equals(searchRegDateStart))">
+    			AND h.created_at <![CDATA[>=]]> STR_TO_DATE(#{searchRegDateStart}, '%Y-%m-%d')
+    		</if>
+    		<if test="(searchRegDateEnd != null) and (!''.equals(searchRegDateEnd))">
+    			AND h.created_at <![CDATA[<=]]> STR_TO_DATE(#{searchRegDateEnd}, '%Y-%m-%d')
+    		</if>
+    		<if test="(department != null) and (!''.equals(department)) and (department != '전체')">
+    			AND t.detail_name = #{department}
+    		</if>
+    		<if test="(jobGrade != null) and (!''.equals(jobGrade)) and (jobGrade != '전체')">
+    			AND d.detail_name = #{jobGrade}
+    		</if>
+    	</where>
+    	ORDER BY h.id DESC
+    	LIMIT #{startSeq}, #{pageSize}
+	</select>
+	
+	<select id="promotionListCnt" resultType="int">
+		SELECT 
+			count(h.id)
+		FROM
+			tb_job_grade_hist h
+		JOIN tb_emp e ON
+			h.emp_id = e.id
+		JOIN tb_detail_code d ON
+			h.job_grade = d.detail_code
+		JOIN tb_detail_code t ON
+			e.department_code = t.detail_code
+		<where>
+    		<if test="(searchId != null) and (!''.equals(searchId))">
+    			AND e.`number` LIKE CONCAT('%', #{searchId}, '%')
+    		</if>
+    		<if test="(searchName != null) and (!''.equals(searchName))">
+    			AND e.`name` LIKE CONCAT('%', #{searchName}, '%')
+    		</if>
+    		<if test="(searchRegDateStart != null) and (!''.equals(searchRegDateStart))">
+    			AND h.created_at <![CDATA[>=]]> STR_TO_DATE(#{searchRegDateStart}, '%Y-%m-%d')
+    		</if>
+    		<if test="(searchRegDateEnd != null) and (!''.equals(searchRegDateEnd))">
+    			AND h.created_at <![CDATA[<=]]> STR_TO_DATE(#{searchRegDateEnd}, '%Y-%m-%d')
+    		</if>
+    		<if test="(department != null) and (!''.equals(department)) and (department != '전체')">
+    			AND t.detail_name = #{department}
+    		</if>
+    		<if test="(jobGrade != null) and (!''.equals(jobGrade)) and (jobGrade != '전체')">
+    			AND d.detail_name = #{jobGrade}
+    		</if>
+    	</where>			
+	</select>
+	
+	<select id="promotionDetailList" resultType="kr.happyjob.study.personnel.model.PromotionModel">
+    	SELECT 
+          	  e.`number` AS employeeNumber
+        	, e.`name` AS employeeName
+        	, e.department_code AS departmentCode
+        	, d.detail_name AS jobGrade
+        	, h.created_at AS createdAt
+        	, t.detail_name AS departmentDetailName
+        	, h.emp_id AS employeeId
+        	, c.detail_name AS recentJobGrade
+    	FROM tb_job_grade_hist h
+    	JOIN tb_emp e ON h.emp_id = e.id
+    	JOIN tb_detail_code d ON h.job_grade = d.detail_code
+    	JOIN tb_detail_code t ON e.department_code = t.detail_code
+    	JOIN tb_detail_code c ON e.job_grade_code = c.detail_code
+    	WHERE e.`number` = #{employeeNumber}
+    	ORDER BY h.created_at DESC
+    	LIMIT #{startSeq}, #{pageSize}
+	</select>
+	
+	<select id="promotionDetailCnt" resultType="int">
+		SELECT
+			count(h.id)
+		FROM
+			tb_job_grade_hist h
+		JOIN tb_emp e ON h.emp_id = e.id
+		WHERE e.`number` = #{employeeNumber}
+	</select>
+	
+	<insert id="jobGradeHistSave">
+		<selectKey resultType="int" keyProperty="jobGradeHistId" order="BEFORE">
+			SELECT IFNULL(max(id), 0) + 1 FROM tb_job_grade_hist
+		</selectKey>
+		INSERT INTO tb_job_grade_hist 
+		(
+			  `id`
+			, emp_id
+			, job_grade
+			, created_at
+			, new_job_grade
+		) VALUES (
+			  #{jobGradeHistId}
+			, #{employeeId}
+			, (SELECT IFNULL(detail_code, 'DEFAULT_CODE') FROM tb_detail_code WHERE detail_name = #{oldJobGrade} LIMIT 1)
+			, NOW()
+			, (SELECT IFNULL(detail_code, 'DEFAULT_CODE') FROM tb_detail_code WHERE detail_name = #{newJobGrade} LIMIT 1)
+		)
+	</insert>
+
+</mapper>

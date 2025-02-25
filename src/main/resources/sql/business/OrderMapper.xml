@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.business.dao.OrderDao">
+    
+    <select id="getClientNames" resultType="map">
+        SELECT
+        	  id as id
+        	, client_name as name
+        FROM
+        	tb_client;
+    </select>
+    
+    <select id="getProductNames" resultType="map">
+    	SELECT
+    		  id as id
+    		, name as name
+   		FROM
+   			tb_manufacturer_product;
+    </select>
+    
+    <select id="getManufacturerNames" resultType="map">
+		SELECT
+			  id as id
+			, name as name
+		FROM
+			tb_manufacturer;
+    </select>
+    
+    <select id="getMajorCategoryNames" resultType="map">
+    	SELECT
+ 			  gc.group_name as groupName
+    		, gc.group_code as industryCode
+    	FROM
+    		tb_group_code gc
+    	JOIN
+    		tb_manufacturer m ON gc.group_code = m.industry_code
+    	WHERE m.id = #{manufacturerId}
+    </select>
+    
+    <select id="getSubCategoryNames" resultType="map">
+    	SELECT
+    		  dc.detail_name as subName
+    		, dc.detail_code as subCode
+   		FROM
+   			tb_detail_code dc
+		JOIN
+			tb_group_code gc ON gc.group_code = dc.group_code
+		WHERE
+			gc.group_code = #{industryCode}
+			AND dc.higher_code != dc.detail_code; 
+    </select>
+    
+    <select id="getOrderProductNames" resultType="map">
+    	SELECT
+    		  mp.name as productName
+    		, mp.id as productId
+    		, mp.unit_price as unitPrice
+    	FROM
+    		tb_manufacturer_product mp
+   		JOIN
+   			tb_detail_code dc ON dc.detail_code = mp.product_code
+  		WHERE
+  			dc.detail_code = #{subCode}
+    </select>
+    
+    
+    <select id="getOrderList" resultType="kr.happyjob.study.business.model.OrderModel">
+		SELECT
+			  o.id as id
+			, o.client_id as clientId
+			, o.order_emp_name as orderEmpName
+			, o.client_name as clientName
+			, o.product_name as productName
+			, o.order_date as orderDate
+			, o.delivery_date as deliveryDate
+			, o.total_delivery_count as totalDeliveryCount		
+			, o.total_supply_price as totalSupplyPrice
+			, o.total_tax as totalTax
+			, o.sales_area as salesArea
+		FROM
+			tb_order o
+		<where>
+			<if test="(searchOrderDate != null) and (!''.equals(searchOrderDate))">
+				AND o.order_date = STR_TO_DATE(#{searchOrderDate}, '%Y-%m-%d')
+			</if>
+			<if test="(searchDeliveryDate != null) and (!''.equals(searchDeliveryDate))">
+				AND o.delivery_date = STR_TO_DATE(#{(searchDeliveryDate}, '%Y-%m-%d')
+			</if>
+			<if test="(searchClientId != null) and (!''.equals(searchClientId))">
+				AND o.client_name = (
+					SELECT
+				 		client_name
+		  		 	FROM tb_client
+		  		 	WHERE id = #{searchClientId}
+		  		 	)
+			</if>
+			<if test="(searchProductId != null) and (!''.equals(searchProductId))">
+				AND EXISTS (
+					SELECT 1
+					FROM tb_order_product op
+					WHERE op.product_id = #{searchProductId}
+					AND op.order_id = o.id
+					)
+			</if>
+		</where>
+		ORDER BY o.id DESC
+		LIMIT #{startSeq}, #{pageSize}
+    </select>
+    
+   	<select id="getOrderCnt" resultType="int">
+		SELECT
+			  count(id)
+		FROM
+			tb_order
+		<where>
+			<if test="(searchOrderDate != null) and (!''.equals(searchOrderDate))">
+				AND order_date = STR_TO_DATE(#{searchOrderDate}, '%Y-%m-%d')
+			</if>
+			<if test="(searchDeliveryDate != null) and (!''.equals(searchDeliveryDate))">
+				AND delivery_date = STR_TO_DATE(#{(searchDeliveryDate}, '%Y-%m-%d')
+			</if>
+			<if test="searchClientId != null and (!''.equals(searchClientId))">
+				AND client_name = (SELECT client_name FROM tb_client WHERE id = #{searchClientId})
+			</if>
+		</where>
+	</select>
+	
+	<select id="getOrder" resultType="kr.happyjob.study.business.model.OrderModel">
+		SELECT
+		  	  client_id as clientId
+			, client_name as clientName
+			, order_emp_name as orderEmpName
+			, order_date as orderDate
+			, delivery_date as deliveryDate
+			, total_delivery_count as totalDeliveryCount		
+			, total_supply_price as totalSupplyPrice
+			, total_tax as totalTax
+			, esti_id as estimateId
+		FROM
+			tb_order
+		WHERE
+			id = #{orderId}
+	</select>
+	
+	<select id="getClient" resultType="kr.happyjob.study.business.model.OrderClientModel">
+		SELECT
+			  client_name as clientName
+			, ph as ph
+			, person as person
+			, person_ph as personPh
+			, addr as addr
+			, biz_num as bizNum
+		FROM
+			tb_client
+		WHERE
+			id = #{clientId}
+	</select>
+	
+	<select id="getOrderDetail" resultType="kr.happyjob.study.business.model.OrderDetailModel">
+		SELECT
+			  op.product_id as productId
+			, mp.name as productName
+			, op.unit_price as unitPrice
+			, op.quantity as quantity
+			, op.supply_price as supplyPrice
+		FROM 
+			tb_order_product op
+		JOIN
+			tb_manufacturer_product mp ON op.product_id = mp.id
+		WHERE
+			order_id = #{orderId}
+	</select>
+	
+	<select id="getEmployeeInfo" parameterType="string" resultType="map">
+    SELECT
+    	  department_code AS departmentCode
+    	, name AS orderEmpName
+    	, id AS empId
+    FROM
+    	tb_emp
+    WHERE
+    	login_id = #{loginId}
+	</select>
+
+	<select id="getProductName" parameterType="string" resultType="string">
+    SELECT
+    	name
+   	FROM
+   		tb_manufacturer_product
+	WHERE id = #{productId}
+	</select>
+
+	<insert id="insertOrder" useGeneratedKeys="true" keyProperty="orderId">
+    INSERT INTO
+    	tb_order (
+	          client_id
+	        , department_code
+	        , order_emp_name
+	        , order_date
+	        , delivery_date
+	        , client_name
+	        , product_name
+	        , total_delivery_count
+	        , total_supply_price
+	        , total_tax
+	        , sales_area
+	        , emp_id
+	        , deposit_amount
+	        , receivable_amount
+	        , total_unit_price
+	        , esti_id
+    	) VALUES (
+        	  #{clientId}
+        	, #{departmentCode}
+        	, #{orderEmpName}
+        	, NOW()
+        	, #{orderDeliveryDate}
+        	, (SELECT client_name FROM tb_client WHERE id = #{clientId})
+        	, #{productName}
+        	, #{totalDeliveryCount}
+        	, #{totalSupplyPrice}
+        	, #{totalTax}
+        	, #{orderSalesArea}
+        	, #{empId}
+        	, #{depositAmount}
+        	, #{receivableAmount}
+        	, #{totalUnitPrice}
+        	, 
+        	<if test="estimateId == ''">null</if>
+        	<if test="estimateId != ''">#{estimateId}</if>
+    )
+	</insert>
+	
+	<select id="getLastInsertId" resultType="int">
+    SELECT LAST_INSERT_ID()
+	</select>
+
+	<insert id="insertOrderProduct">
+    INSERT INTO
+    	tb_order_product (
+	          order_id
+	        , client_id
+	        , emp_id
+	        , product_id
+	        , quantity
+	        , supply_price
+	        , unit_price
+    	) VALUES (
+        	  #{orderId}
+        	, #{clientId}
+        	, #{empId}
+        	, #{productId}
+        	, #{quantity}
+        	, #{supplyPrice}
+        	, #{unitPrice}
+    	)
+	</insert>
+	
+	<select id="getOrderEstimateList" resultType="kr.happyjob.study.business.model.EstimateModel">
+		SELECT
+			  o.id as id
+			, o.client_id as clientId
+			, o.estimate_emp_name as estimateEmpName
+			, o.client_name as clientName
+			, o.product_name as productName
+			, o.estimate_date as estimateDate
+			, o.delivery_date as deliveryDate
+			, o.total_delivery_count as totalDeliveryCount		
+			, o.total_supply_price as totalSupplyPrice
+			, o.total_tax as totalTax
+			, o.sales_area as salesArea
+		FROM
+			tb_estimate o
+		WHERE
+			order_status = 'N'
+		ORDER BY o.id DESC
+		LIMIT #{startSeq}, #{pageSize}
+    </select>
+    
+   	<select id="getOrderEstimateCnt" resultType="int">
+		SELECT
+			  count(id)
+		FROM
+			tb_estimate
+		WHERE
+			order_status = 'N'
+	</select>
+
+	<update id="updateOrderStatus">
+		UPDATE 
+			tb_estimate
+		SET
+			order_status = 'Y'
+		WHERE
+			id = #{estimateId}
+	</update>
+</mapper>

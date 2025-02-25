@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.account.dao.VoucherDao">
+
+<select id="getVoucherList" resultType="kr.happyjob.study.account.model.VoucherModel">
+		SELECT
+		tv.exp_id
+		,tv.order_id
+		,<if test="'expense'.equals(searchType)">'비용' AS account_type</if>
+		<if test="'sales'.equals(searchType)">'매출' AS account_type</if>		
+		,tdc2.detail_name AS crebit_name
+		,tv.voucher_no AS voucher_no
+		,tv.voucher_amount
+		,tv.voucher_date
+		,tv.emp_name
+		,tv.client_name
+		,tdc.detail_name AS debit_name
+		FROM
+		tb_voucher tv		
+		INNER JOIN tb_detail_code tdc
+		ON
+		tdc.detail_code = tv.debit_code
+		LEFT JOIN tb_detail_code tdc2
+		ON
+		tdc2.detail_code = tv.crebit_code
+		<where>
+		<if test="'expense'.equals(searchType)">
+		AND exp_id IS NOT NULL
+		</if>
+		<if test="'sales'.equals(searchType)">
+		AND order_id IS NOT NULL
+		</if>	
+		<if test="(searchCrebitName != null) and (!''.equals(searchCrebitName))">
+			AND tdc2.detail_name = #{searchCrebitName}
+		</if>
+		<if test="(searchDebitName != null) and (!''.equals(searchDebitName))">
+			AND tdc.detail_name = #{searchDebitName}
+		</if>
+		<if test="(searchClientName != null) and (!''.equals(searchClientName))">
+			AND te.client_id = #{searchClientId}
+		</if>
+		<if test="(searchStDate != null) and (!''.equals(searchStDate))">
+			AND tv.voucher_date <![CDATA[>=]]>
+			STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+		</if>
+		<if test="(searchEdDate != null) and (!''.equals(searchEdDate))">
+			AND tv.voucher_date <![CDATA[<=]]>
+			STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+		</if>
+		</where>
+		ORDER BY tv.voucher_no DESC
+		LIMIT #{startSeq}, #{pageSize}
+</select>
+
+<select id="getVoucherListCnt" resultType="int">
+		SELECT
+		count(tv.voucher_no)
+		FROM
+		tb_voucher tv		
+		INNER JOIN tb_detail_code tdc
+		ON
+		tdc.detail_code = tv.debit_code
+		LEFT JOIN tb_detail_code tdc2
+		ON
+		tdc2.detail_code = tv.crebit_code
+		<where>
+		<if test="'expense'.equals(searchType)">
+		AND exp_id IS NOT NULL
+		</if>
+		<if test="'sales'.equals(searchType)">
+		AND order_id IS NOT NULL
+		</if>
+		<if test="(searchCrebitName != null) and (!''.equals(searchCrebitName))">
+			AND tdc2.detail_name = #{searchCrebitName}
+		</if>
+		<if test="(searchDebitName != null) and (!''.equals(searchDebitName))">
+			AND tdc.detail_name = #{searchDebitName}
+		</if>
+		<if test="(searchClientName != null) and (!''.equals(searchClientName))">
+			AND te.client_id = #{searchClientId}
+		</if>
+		<if test="(searchStDate != null) and (!''.equals(searchStDate))">
+			AND tv.voucher_date <![CDATA[>=]]>
+			STR_TO_DATE(#{searchStDate}, '%Y-%m-%d')
+		</if>
+		<if test="(searchEdDate != null) and (!''.equals(searchEdDate))">
+			AND tv.voucher_date <![CDATA[<=]]>
+			STR_TO_DATE(#{searchEdDate}, '%Y-%m-%d')
+		</if>
+		</where>
+</select>
+
+	<select id="selectSalesVoucherNo" resultType="string">
+		SELECT 
+			CONCAT(
+				'SALES-'
+				, DATE_FORMAT(NOW(), '%Y%m%d')
+				, '-'
+				, IFNULL(MAX(CAST(SUBSTRING_INDEX(voucher_no, '-', -1) AS UNSIGNED)), 0) + 1
+			) AS voucherNo
+		FROM tb_voucher
+		WHERE voucher_no LIKE CONCAT('SALES-', DATE_FORMAT(NOW(), '%Y%m%d'), '-%')
+	</select>
+	
+	<select id="selectExpenseVoucherSeq" resultType="string">
+    SELECT 
+			CONCAT(
+				'EXPSE-'
+				, DATE_FORMAT(NOW(), '%Y%m%d')
+				, '-'
+				, IFNULL(MAX(CAST(SUBSTRING_INDEX(voucher_no, '-', -1) AS UNSIGNED)), 0) + 1
+			) AS voucherNo
+		FROM tb_voucher
+		WHERE voucher_no LIKE CONCAT('EXPSE-', DATE_FORMAT(NOW(), '%Y%m%d'), '-%')
+	</select>
+
+	<insert id='insertReceivable'>
+	INSERT INTO tb_voucher 
+		(
+			  voucher_no
+			, order_id
+			, client_name
+			, emp_name
+			, voucher_amount
+			, voucher_date
+			, debit_code
+			, crebit_code
+		) VALUES (
+			  #{voucherNo}
+			, #{orderId}
+			, (SELECT client_name FROM tb_client WHERE id = #{clientId})
+			, #{orderEmpName}
+			, #{receivableAmount}
+			, NOW()
+			, 'AC01106'
+			, 'AC01101'
+		)
+	</insert>
+	
+	<insert id='insertReceivableHistory'>
+	INSERT INTO tb_voucher 
+		(
+			  voucher_no
+			, order_id
+			, client_name
+			, emp_name
+			, voucher_amount
+			, voucher_date
+			, debit_code
+			, crebit_code
+		) VALUES (
+			  #{voucherNo}
+			, #{orderId}
+			, #{clientName}
+			, #{managerName}
+			, #{depositAmount}
+			, NOW()
+			, 'AC05101'
+			, 'AC01105'
+		)
+	</insert>
+	
+	
+	<insert id='insertExpenseVoucher'>
+	INSERT INTO tb_voucher 
+		(
+			  voucher_no
+			, exp_id
+			, client_name
+			, emp_name
+			, voucher_amount
+			, voucher_date
+			, debit_code
+			, crebit_code
+		) VALUES (
+			  #{voucherNo}
+			, #{exp_id}
+			, #{client_name}
+			, <if test="emp_name == ''">null</if><if test="emp_name != ''">#{emp_name}</if>
+			, #{voucher_amount}
+			, #{use_date}
+			, #{debit_code}
+			, #{crebit_code}
+		)
+	</insert>
+</mapper>

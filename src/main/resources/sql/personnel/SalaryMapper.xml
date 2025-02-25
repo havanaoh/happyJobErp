@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.personnel.dao.SalaryDao">
+	
+	<select id="salaryList" resultType="kr.happyjob.study.personnel.model.SalaryModel">
+		SELECT
+			s.id as salaryId,
+			s.emp_id as employeeId,
+			s.salary,
+			s.base_salary as baseSalary,
+			s.national_pension as nationalPension,
+			s.health_insurance as healthInsurance,
+			s.industrial_accident as industrialAccident,
+			s.employment_insurance as employmentInsurance,
+			s.additional_amount as additionalAmount,
+			s.total_salary as totalSalary,
+			s.severance_pay as severancePay,
+			s.payment_status as paymentStatus,
+			s.payment_date as paymentDate,
+			e.number as employeeNumber,
+			e.name as employeeName,
+			d.detail_name as departmentDetailName,
+			t.detail_name as jobGradeDetailName			
+		FROM 
+			tb_salary s
+		JOIN tb_emp e ON s.emp_id = e.id
+		JOIN tb_detail_code d ON 
+    		e.department_code = d.detail_code
+    	JOIN tb_detail_code t ON
+    		e.job_grade_code = t.detail_code
+		<where>
+			<if test="(searchEmployeeName != null) and (!''.equals(searchEmployeeName))">
+    			AND e.`name` LIKE CONCAT('%', #{searchEmployeeName }, '%')
+    		</if>
+			<if test="(department != null) and (!''.equals(department)) and (department != '전체')">
+    			AND d.detail_name = #{department}
+    		</if>
+    		<if test="(jobGrade != null) and (!''.equals(jobGrade)) and (jobGrade != '전체')">
+    			AND t.detail_name = #{jobGrade}
+    		</if>
+    		<if test="(searchPaymentMonth != null) and (!''.equals(searchPaymentMonth))">
+    			AND DATE_FORMAT(s.payment_date, '%Y-%m') = #{searchPaymentMonth}
+			</if>
+			<if test="(searchPaymentStatus != null) and (!''.equals(searchPaymentStatus))">
+    			AND s.payment_status = #{searchPaymentStatus}
+    		</if>
+		</where>
+		ORDER BY s.payment_date DESC
+		LIMIT #{startSeq}, #{pageSize}	
+	</select>
+	
+	<select id="salaryListCnt" resultType="int">
+		SELECT
+			count(s.id)
+		FROM
+			tb_salary s
+		JOIN tb_emp e ON s.emp_id = e.id
+		JOIN tb_detail_code d ON 
+    		e.department_code = d.detail_code
+    	JOIN tb_detail_code t ON
+    		e.job_grade_code = t.detail_code 
+		<where>
+			<if test="(searchEmployeeName != null) and (!''.equals(searchEmployeeName))">
+    			AND e.`name` LIKE CONCAT('%', #{searchEmployeeName }, '%')
+    		</if>
+			<if test="(department != null) and (!''.equals(department)) and (department != '전체')">
+    			AND d.detail_name = #{department}
+    		</if>
+    		<if test="(jobGrade != null) and (!''.equals(jobGrade)) and (jobGrade != '전체')">
+    			AND t.detail_name = #{jobGrade}
+    		</if>
+    		<if test="(searchPaymentMonth != null) and (!''.equals(searchPaymentMonth))">
+    			AND DATE_FORMAT(s.payment_date, '%Y-%m') = #{searchPaymentMonth}
+			</if>
+			<if test="(searchPaymentStatus != null) and (!''.equals(searchPaymentStatus))">
+    			AND s.payment_status = #{searchPaymentStatus}
+    		</if>
+		</where>
+			
+	</select>
+	
+	<select id="salaryDetail" resultType="kr.happyjob.study.personnel.model.SalaryModel">
+		SELECT
+			  s.id as salaryId
+			, s.emp_id as employeeId
+			, s.salary
+			, s.base_salary as baseSalary
+			, s.national_pension as nationalPension
+			, s.health_insurance as healthInsurance
+			, s.industrial_accident as industrialAccident
+			, s.employment_insurance as employmentInsurance
+			, s.additional_amount as additionalAmount
+			, s.total_salary as totalSalary
+			, s.severance_pay as severancePay
+			, s.payment_status as paymentStatus
+			, s.payment_date as paymentDate
+			, e.number as employeeNumber
+			, e.name as employeeName
+			, d.detail_name as departmentDetailName
+			, t.detail_name as jobGradeDetailName
+		FROM 
+			tb_salary s
+		JOIN tb_emp e ON s.emp_id = e.id
+		JOIN tb_detail_code d ON 
+    		e.department_code = d.detail_code
+    	JOIN tb_detail_code t ON
+    		e.job_grade_code = t.detail_code
+    	WHERE
+    		e.number = #{employeeNumber}
+    	ORDER BY s.payment_date DESC
+	</select>
+	
+	<select id="salaryDetailCnt" resultType="int">
+		SELECT
+			count(s.id)
+		FROM 
+			tb_salary s
+		JOIN tb_emp e ON s.emp_id = e.id
+    	WHERE
+    		e.number = #{employeeNumber}
+	</select>
+	
+	<select id="salaryListDetail" resultType="kr.happyjob.study.personnel.model.SalaryModel">
+		SELECT
+			  s.emp_id as employeeId
+			, s.salary
+			, s.base_salary as baseSalary
+			, s.national_pension as nationalPension
+			, s.health_insurance as healthInsurance
+			, s.industrial_accident as industrialAccident
+			, s.employment_insurance as employmentInsurance
+			, s.additional_amount as additionalAmount
+			, s.total_salary as totalSalary
+			, s.severance_pay as severancePay
+			, s.payment_date as paymentDate
+			, e.number as employeeNumber
+			, e.name as employeeName
+			, t.detail_name as jobGradeDetailName
+			, CASE 
+					WHEN MAX(h.created_at) IS NOT NULL
+					THEN DATE_FORMAT(NOW() , '%Y') - DATE_FORMAT(MAX(h.created_at) , '%Y') + 1
+					ELSE DATE_FORMAT(NOW() , '%Y') - DATE_FORMAT(e.reg_date , '%Y') + 1 
+				END AS workingYear
+		FROM
+			tb_emp e
+		LEFT JOIN tb_salary s ON e.id= s.emp_id
+			AND (
+	            #{searchPaymentMonth} IS NULL 
+	            OR #{searchPaymentMonth} = ''
+	            OR DATE_FORMAT(s.payment_date, '%Y-%m') = #{searchPaymentMonth}
+	        )
+		JOIN tb_detail_code t ON
+    		e.job_grade_code = t.detail_code 
+    	LEFT JOIN tb_job_grade_hist h ON
+    		e.id = h.emp_id    		
+    	<where>
+    		e.login_id = #{loginId}
+    	</where>	
+    	GROUP BY
+    		  s.emp_id
+			, s.salary
+			, s.base_salary
+			, s.national_pension
+			, s.health_insurance
+			, s.industrial_accident
+			, s.employment_insurance
+			, s.additional_amount
+			, s.total_salary
+			, s.severance_pay
+			, s.payment_date
+			, e.number
+			, e.name
+			, t.detail_name	
+			, e.reg_date
+		ORDER BY salary
+		LIMIT 1
+	</select>
+	
+	<update id="paymentStatusUpdate">
+		UPDATE tb_salary
+		SET 
+			  payment_status = 1
+			, national_pension = #{nationalPension}
+			, health_insurance = #{healthInsurance}
+			, employment_insurance = #{employmentInsurance}
+			, industrial_accident = #{industrialAccident}
+			, total_salary = #{totalSalary}
+		WHERE id = #{salaryId}
+	</update>
+	
+	<update id="allPaymentStatusUpdate">
+		UPDATE tb_salary
+		SET payment_status = #{paymentStatus}
+		WHERE payment_status = 0
+	</update>
+	
+	<select id="countUnpaidSalaries" resultType="int">
+		SELECT COUNT(id)
+		FROM tb_salary
+		WHERE payment_status = 0
+	</select>
+	
+	<select id="getUnpaidSalaries" resultType="kr.happyjob.study.personnel.model.SalaryModel">
+		SELECT
+			  id AS salaryId
+			, base_salary AS baseSalary
+		FROM 
+			tb_salary
+		WHERE 
+			payment_status = 0
+	</select>
+	
+	<select id="salaryClassList" resultType="kr.happyjob.study.personnel.model.SalaryClassModel">
+		SELECT
+			sc.year1,
+			sc.year2,
+			sc.year3,
+			sc.year4,
+			sc.year5 
+		FROM tb_emp e
+		JOIN tb_salary_class sc ON sc.detail_code = #{jobGradeCode}
+		WHERE e.id = #{employeeId};
+	</select>
+	
+	<insert id="severancePaySave">
+		<selectKey resultType="int" keyProperty="id" order="BEFORE">
+			SELECT IFNULL(max(id), 0) + 1 FROM tb_salary
+		</selectKey>
+		INSERT INTO tb_salary
+		(	  id
+			, emp_id
+			, salary
+			, base_salary
+			, severance_pay
+			, payment_date
+		) VALUES (
+			  #{id}
+			, #{employeeId}
+			, #{salary}
+			, #{salary} / 12
+			, #{severancePay}
+			, NOW()
+		)
+	</insert>
+	
+	<select id="getEmployeeSalary" resultType="int">
+		SELECT 
+	        CASE 
+	            WHEN workingYear = 1 THEN sc.year1
+	            WHEN workingYear = 2 THEN sc.year2
+	            WHEN workingYear = 3 THEN sc.year3
+	            WHEN workingYear = 4 THEN sc.year4
+	            WHEN workingYear = 5 THEN sc.year5
+	            ELSE sc.year5 
+	        END AS salary
+	    FROM (
+	        SELECT 
+	            e.salary_class_id AS salaryClassId,
+	            CASE 
+	                WHEN MAX(h.created_at) IS NOT NULL
+	                THEN DATE_FORMAT(NOW(), '%Y') - DATE_FORMAT(MAX(h.created_at), '%Y') + 1
+	                ELSE DATE_FORMAT(NOW(), '%Y') - DATE_FORMAT(e.reg_date, '%Y') + 1 
+	            END AS workingYear
+	        FROM tb_emp e
+	        JOIN tb_job_grade_hist h ON e.id = h.emp_id 
+	        WHERE e.id = #{employeeId}
+	    ) AS empData
+	    JOIN tb_salary_class sc ON empData.salaryClassId = sc.id
+	</select>
+	
+	<select id="getUnpaidEmployeeId" resultType="kr.happyjob.study.personnel.model.EmployeeModel">
+		SELECT e.id AS employeeId
+		FROM tb_emp e
+		WHERE e.empl_status = "W"
+	</select>
+	
+	<select id="checkSalaryExists" resultType="int">
+	    SELECT 
+	    	COUNT(emp_id) 
+	    FROM 
+	    	tb_salary 
+	    WHERE 
+	    	emp_id = #{employeeId} 
+	    	AND DATE_FORMAT(payment_date, '%Y-%m') = #{paymentDate}
+	</select>
+	
+	<update id="updateSalary">
+	    UPDATE 
+	    	tb_salary 
+	    SET 
+	    	  salary = #{salary}
+	    	, base_salary = (#{salary} / 12) 
+	    WHERE 
+	    	emp_id = #{employeeId} 
+	    	AND DATE_FORMAT(payment_date, '%Y-%m') = #{paymentDate}
+	</update>	
+	
+	<insert id="insertSalary">
+		<selectKey resultType="int" keyProperty="id" order="BEFORE">
+			SELECT IFNULL(max(id), 0) + 1 FROM tb_salary
+		</selectKey>
+	    INSERT INTO 
+	    	tb_salary 
+	    (
+	    	  id
+	    	, emp_id
+	    	, payment_date
+	    	, salary
+	    	, base_salary
+	    ) VALUES 
+	    (
+	    	  #{id}
+	    	, #{employeeId}
+	    	, CONCAT(#{paymentDate}, '-15')
+	    	, #{salary}
+	    	, (#{salary}/12)
+	    )
+	</insert>
+	
+</mapper>

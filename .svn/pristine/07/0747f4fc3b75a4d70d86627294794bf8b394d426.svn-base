@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.personnel.dao.EmployeeDao">
+    
+    <select id="employeeList" resultType="kr.happyjob.study.personnel.model.EmployeeModel">
+    	SELECT
+    		  e.id as employeeId
+    		, e.`number`
+    		, e.name as employeeName
+    		, e.department_code as departmentCode
+    		, e.reg_date as regDate
+    		, e.empl_status as emplStatus
+    		, e.resignation_date as resignationDate
+    		, d.detail_name as departmentDetailName
+    		, t.detail_name as jobGradeDetailName
+    		, e.job_grade_code as jobGradeCode
+    	FROM
+    		tb_emp e
+    	JOIN tb_detail_code d ON 
+    		e.department_code = d.detail_code
+    	LEFT JOIN tb_detail_code t ON
+    		e.job_grade_code = t.detail_code
+    	<where>
+    		<if test="(searchId != null) and (!''.equals(searchId))">
+    			AND `number` LIKE CONCAT('%', #{searchId}, '%')
+    		</if>
+    		<if test="(searchName != null) and (!''.equals(searchName))">
+    			AND name LIKE CONCAT('%', #{searchName}, '%')
+    		</if>
+    		<if test="(searchRegDateStart != null) and (!''.equals(searchRegDateStart))">
+    			AND e.reg_date <![CDATA[>=]]> STR_TO_DATE(#{searchRegDateStart}, '%Y-%m-%d')
+    		</if>
+    		<if test="(searchRegDateEnd != null) and (!''.equals(searchRegDateEnd))">
+    			AND e.reg_date <![CDATA[<=]]> STR_TO_DATE(#{searchRegDateEnd}, '%Y-%m-%d')
+    		</if>
+    		<if test="(department != null) and (!''.equals(department)) and (department != '전체')">
+    			AND d.detail_name = #{department}
+    		</if>
+    		<if test="(jobGrade != null) and (!''.equals(jobGrade)) and (jobGrade != '전체')">
+    			AND t.detail_name = #{jobGrade}
+    		</if>
+    		<if test="(emplStatus != null) and (!''.equals(emplStatus))">
+			    <choose>
+			        <when test='emplStatus == "W"'>
+			        	AND e.empl_status IN ('W', 'O')		            
+			        </when>
+			        <otherwise>   			            
+			            AND e.empl_status = #{emplStatus}
+			        </otherwise>
+			    </choose>
+			</if>
+    	</where>    	
+    	ORDER BY e.id DESC
+    	LIMIT #{startSeq}, #{pageSize}	  
+    </select>
+    
+    <select id="employeeListCnt" resultType="int">
+    	SELECT
+    		count(id)
+    	FROM
+    		tb_emp e
+    	JOIN tb_detail_code d ON 
+    		e.department_code = d.detail_code
+    	LEFT JOIN tb_detail_code t ON
+    		e.job_grade_code = t.detail_code
+    	<where>
+    		<if test="(searchId != null) and (!''.equals(searchId))">
+    			AND `number` LIKE CONCAT('%', #{searchId}, '%')
+    		</if>
+    		<if test="(searchName != null) and (!''.equals(searchName))">
+    			AND name LIKE CONCAT('%', #{searchName}, '%')
+    		</if>
+    		<if test="(searchRegDateStart != null) and (!''.equals(searchRegDateStart))">
+    			AND e.reg_date <![CDATA[>=]]> STR_TO_DATE(#{searchRegDateStart}, '%Y-%m-%d')
+    		</if>
+    		<if test="(searchRegDateEnd != null) and (!''.equals(searchRegDateEnd))">
+    			AND e.reg_date<![CDATA[<=]]> STR_TO_DATE(#{searchRegDateEnd}, '%Y-%m-%d')
+    		</if>
+    		<if test="(department != null) and (!''.equals(department)) and (department != '전체')">
+    			AND d.detail_name = #{department}
+    		</if>
+    		<if test="(jobGrade != null) and (!''.equals(jobGrade)) and (jobGrade != '전체')">
+    			AND t.detail_name = #{jobGrade}
+    		</if>
+    		<if test="(emplStatus != null) and (!''.equals(emplStatus))">
+			    <choose>
+			        <when test='emplStatus == "W"'>
+			        	AND e.empl_status IN ('W', 'O')		            
+			        </when>
+			        <otherwise>   			            
+			            AND e.empl_status = #{emplStatus}
+			        </otherwise>
+			    </choose>
+			</if>
+    	</where> 	    	
+    </select>
+    
+    <select id="employeeDetail" resultType="kr.happyjob.study.personnel.model.EmployeeModel">
+    	SELECT
+    		  e.id as employeeId
+    		, e.name as employeeName
+    		, e.registration_number	as registrationNumber
+    		, e.sex
+    		, e.birthday
+    		, e.final_education as finalEducation
+    		, e.email
+    		, e.`number`
+    		, e.hp
+    		, e.address
+    		, e.address_detail as addressDetail
+    		, e.bank
+    		, e.bank_account as bankAccount
+    		, e.empl_status as emplStatus
+    		, e.department_code as departmentCode
+    		, e.reg_date as regDate
+    		, e.resignation_date as resignationDate
+    		, e.profile_file_name as profileFileName
+    		, e.profile_physical_path as profilePhysicalPath
+    		, e.profile_logical_path as profileLogicalPath
+    		, e.profile_file_size as profileFileSize
+    		, e.profile_file_ext as profileFileExt
+    		, d.detail_name as departmentDetailName
+    		, t.detail_name as jobGradeDetailName
+    		, r.detail_name as jobRoleDetailName
+    		, CASE 
+					WHEN MAX(h.created_at) IS NOT NULL
+					THEN DATE_FORMAT(NOW() , '%Y') - DATE_FORMAT(MAX(h.created_at) , '%Y') + 1
+					ELSE DATE_FORMAT(NOW() , '%Y') - DATE_FORMAT(e.reg_date , '%Y') + 1 
+				END AS workingYear
+			, e.job_grade_code AS jobGradeCode
+			, e.zip_code AS zipCode
+			, s.severance_pay AS severancePay
+			, e.emp_memo AS empMemo
+    	FROM tb_emp e
+    	JOIN tb_detail_code d ON 
+    		e.department_code = d.detail_code
+    	LEFT JOIN tb_detail_code t ON
+    		e.job_grade_code = t.detail_code
+    	LEFT JOIN tb_detail_code r ON
+    		e.job_role_code = r.detail_code
+    	LEFT JOIN tb_job_grade_hist h ON
+    		e.id = h.emp_id
+    	LEFT JOIN tb_salary s ON e.id = s.emp_id AND (s.severance_pay != 0)
+    	WHERE e.id = #{employeeId}
+    	GROUP BY e.id, e.name, e.registration_number, e.sex, e.birthday, e.final_education, e.email, 
+             e.`number`, e.hp, e.address, e.address_detail, e.bank, e.bank_account, e.empl_status,
+             e.department_code, e.job_grade_code, e.reg_date, e.resignation_date, 
+             e.profile_file_name, e.profile_physical_path, e.profile_logical_path,
+             e.profile_file_size, e.profile_file_ext, d.detail_name, t.detail_name, r.detail_name, e.zip_code
+             , s.severance_pay;
+    </select>
+    
+    <update id="employeeUpdate">
+    	UPDATE tb_emp
+    	SET
+    		  name = #{employeeName}
+    		, registration_number = #{registrationNumber}
+    		, sex = #{sex}
+    		, birthday = #{birthday}
+    		, final_education = #{finalEducation}
+    		, email = #{email}
+    		, hp = #{hp}
+    		, address = #{address}
+    		, address_detail = #{addressDetail}
+    		, bank = #{bank}
+    		, bank_account = #{bankAccount}
+    		, department_code = (SELECT IFNULL(detail_code, 'DEFAULT_CODE') FROM tb_detail_code WHERE detail_name = #{departmentDetailName} LIMIT 1)
+    		, job_grade_code = (SELECT IFNULL(detail_code, 'DEFAULT_CODE') FROM tb_detail_code WHERE detail_name = #{jobGradeDetailName} LIMIT 1)
+    		, reg_date = #{regDate}
+    		, resignation_date = 
+    		 <choose>
+                <when test="resignationDate != null and resignationDate != ''">
+                    #{resignationDate}
+                </when>
+                <otherwise>
+                    NULL
+                </otherwise>
+            </choose>
+    		<if test="'Y'.toString() eq fileYn">    		
+    		, profile_file_name = #{fileInfo.file_nm}
+    		, profile_physical_path = #{fileInfo.file_loc}
+    		, profile_logical_path = #{fileInfo.vrfile_loc}
+    		, profile_file_size = #{fileInfo.file_size}
+    		, profile_file_ext = #{fileInfo.fileExtension}
+    		</if>
+    		, zip_code = #{zipCode}
+    		, salary_class_id = (SELECT id FROM tb_salary_class WHERE detail_code = 
+    				(SELECT IFNULL(detail_code, 'DEFAULT_CODE') FROM tb_detail_code WHERE detail_name = #{jobGradeDetailName} LIMIT 1)
+    			)
+    		, emp_memo = #{empMemo}
+    		, empl_status = #{emplStatus}
+    		, user_type = 
+    		<choose>
+    			<when test="departmentDetailName == '영업부'">
+    				'B'
+    			</when>
+    			<when test="departmentDetailName == '회계부' or departmentDetailName == '총무부'">
+    				'A'
+    			</when>
+    			<when test="departmentDetailName == '경영진'">
+    				'C'
+    			</when>
+    			<otherwise>
+    				'E'
+    			</otherwise>
+    		</choose>
+    	WHERE id = #{employeeId}	    	
+    </update>
+    
+    <insert id="employeeSave">
+    	<selectKey resultType="int" keyProperty="employeeId" order="BEFORE">
+			SELECT IFNULL(max(id), 0) + 1 FROM tb_emp
+		</selectKey>
+		
+		INSERT INTO tb_emp
+		(	
+			  `id`
+			, login_id
+			, `password`
+			, `name`
+    		, `registration_number`
+    		, `sex`
+    		, `birthday`
+    		, final_education
+    		, email
+    		, hp
+    		, address
+    		, address_detail
+    		, bank
+    		, bank_account
+    		, department_code
+    		, job_grade_code
+    		, job_role_code
+    		, `number`
+    		, reg_date
+    		, resignation_date 
+    		, empl_status
+    		<if test="'Y'.toString() eq fileYn">    		
+    		, profile_file_name
+    		, profile_physical_path
+    		, profile_logical_path
+    		, profile_file_size
+    		, profile_file_ext
+    		</if>
+    		, user_type
+    		, salary_class_id
+    		, zip_code
+    		, emp_memo
+		) VALUES (
+			  #{employeeId}
+			, #{newNumber}
+			, "1234"
+			, #{employeeName}
+    		, #{registrationNumber}
+    		, #{sex}
+    		, #{birthday}
+    		, #{finalEducation}
+    		, #{email}
+    		, #{hp}
+    		, #{address}
+    		, #{addressDetail}
+    		, #{bank}
+    		, #{bankAccount}
+    		, (SELECT IFNULL(detail_code, 'DEFAULT_CODE') FROM tb_detail_code WHERE detail_name = #{departmentDetailName} LIMIT 1)
+    		, (SELECT IFNULL(detail_code, 'DEFAULT_CODE') FROM tb_detail_code WHERE detail_name = #{jobGradeDetailName} LIMIT 1)
+    		, (SELECT IFNULL(detail_code, 'DEFAULT_CODE') FROM tb_detail_code WHERE detail_name = #{jobRoleDetailName} LIMIT 1)
+    		, #{newNumber}
+    		, #{regDate}
+    		, NULLIF(#{resignationDate},'')
+    		, #{emplStatus}
+    		<if test="'Y'.toString() eq fileYn">    		
+    		, #{fileInfo.file_nm}
+    		, #{fileInfo.file_loc}
+    		, #{fileInfo.vrfile_loc}
+    		, #{fileInfo.file_size}
+    		, #{fileInfo.fileExtension}
+    		</if>
+    		<choose>
+    			<when test="departmentDetailName == '영업부'">
+    				, 'B'
+    			</when>
+    			<when test="departmentDetailName == '회계부' or departmentDetailName == '총무부'">
+    				, 'A'
+    			</when>
+    			<when test="departmentDetailName == '경영진'">
+    				, 'C'
+    			</when>
+    			<otherwise>
+    				, 'E'
+    			</otherwise>
+    		</choose>
+    		, (SELECT id FROM tb_salary_class WHERE detail_code = 
+    				(SELECT IFNULL(detail_code, 'DEFAULT_CODE') FROM tb_detail_code WHERE detail_name = #{jobGradeDetailName} LIMIT 1)
+    			)
+    		, #{zipCode}
+    		, #{empMemo}
+		)		
+    </insert>
+    
+    <insert id="attendanceSave">
+		<selectKey resultType="int" keyProperty="id" order="BEFORE">
+			SELECT IFNULL(max(id), 0) + 1 FROM tb_attendance
+		</selectKey>
+		INSERT INTO tb_attendance 
+		(
+    	      id
+        	, emp_id
+        	, att_cnt
+    	) VALUES (
+        	  #{id}
+        	, #{empId}
+        	, (SELECT CASE 
+                    WHEN DATEDIFF(NOW(), reg_date) >= 365 THEN 20
+                    ELSE 15
+                 END
+           FROM tb_emp 
+           WHERE id = #{empId})
+    	)
+	</insert>
+    
+    <select id="salaryClassList" resultType="kr.happyjob.study.personnel.model.SalaryClassModel">
+    	SELECT 
+			d.detail_name as detailName,
+			s.year1,
+			s.year2,
+			s.year3,
+			s.year4, 
+			s.year5
+		FROM
+			tb_salary_class s
+			JOIN tb_detail_code d ON
+			s.detail_code = d.detail_code
+    </select>
+    
+    <update id="emplStatusUpdate">
+    	UPDATE tb_emp
+    	SET empl_status = #{emplStatus},
+    		resignation_date = #{resignationDate},
+    		resignation_reason = #{resignationReason}
+    	WHERE id = #{employeeId}
+    </update>
+    
+    <select id="getMaxNumber" resultType="int">
+	    SELECT IFNULL(MAX(number), 0) + 1 FROM tb_emp
+	</select>
+    
+</mapper>

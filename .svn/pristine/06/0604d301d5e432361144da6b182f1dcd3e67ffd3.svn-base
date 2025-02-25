@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.happyjob.study.business.dao.ClientDao">
+
+
+	<select id="getClientList" resultType="java.util.Map">
+		SELECT id as 'client_id' ,
+		client_name FROM tb_client;
+	</select>
+
+
+	<select id="searchClientList" resultType="java.util.Map">
+    SELECT *
+    FROM tb_client
+<!--     <choose>
+        cust_update_date와 client_name 둘 다 있을 경우
+        <when test="cust_update_date != null and cust_update_date != '' and client_name != null and client_name != ''">
+            WHERE cust_update_date=#{cust_update_date}
+            AND client_name=#{client_name}
+        </when>
+
+        cust_update_date만 있을 경우
+        <when test="cust_update_date != null and cust_update_date != ''">
+            WHERE cust_update_date=#{cust_update_date}
+        </when>
+
+        client_name만 있을 경우
+        <when test="client_name != null and client_name != ''">
+            WHERE client_name=#{client_name}
+        </when>        
+    </choose> -->
+    
+    <where>
+    	<if test="(client_name != null) and (client_name != '')">
+            AND client_name LIKE CONCAT('%', #{client_name}, '%')
+        </if>
+        <if test="(cust_update_date != null) and (cust_update_date != '')">
+            AND cust_update_date =#{cust_update_date}
+        </if>
+    </where>
+    ORDER BY id DESC
+	</select>
+
+
+
+	<select id="isExist" resultType="int">
+		SELECT count(*)
+		FROM tb_client
+		WHERE client_name=#{client_name}
+	</select>
+
+
+	<select id="getMaxId" resultType="int">
+		SELECT MAX(id) FROM tb_client
+	</select>
+
+
+
+
+	<insert id="insertClientList">
+		INSERT INTO tb_client (
+		id,
+		client_name,
+		ph,
+		person,
+		person_ph,
+		zip,
+		addr,
+		detail_addr,
+		biz_num,
+		email,
+		bank,
+		bank_account,
+		memo,
+		cust_update_date -- 날짜를 저장할 컬럼
+		)
+		VALUES (
+		#{id},
+		#{client_name},
+		#{ph},
+		#{person},
+		#{person_ph},
+		#{zip},
+		#{addr},
+		#{detail_addr},
+		#{biz_num},
+		#{email},
+		<choose>
+			<when test="bank_account.startsWith('110')">'신한은행'</when> <!-- 신한은행 코드 예시 -->
+			<when test="bank_account.startsWith('123')">'하나은행'</when> <!-- 하나은행 코드 예시 -->
+			<when test="bank_account.startsWith('301')">'우리은행'</when> <!-- 우리은행 코드 예시 -->
+			<otherwise>기타은행</otherwise> <!-- 기타은행 -->
+		</choose>
+		,
+		#{bank_account},
+		<if test="memo != null and memo != ''">#{memo}</if>  <!-- plan_memo가 있을 경우만 값 넣기 -->
+		<if test="memo == null or memo == ''">DEFAULT</if>
+		,
+		NOW()
+		);
+	</insert>
+
+
+<update id="updateClientList">
+  UPDATE tb_client
+  <set>
+    <if test="client_name != null">client_name = #{client_name},</if>
+    <if test="ph != null">ph = #{ph},</if>
+    <if test="person != null">person = #{person},</if>
+    <if test="person_ph != null">person_ph = #{person_ph},</if>
+    <if test="zip != null">zip = #{zip},</if>
+    <if test="addr != null">addr = #{addr},</if>
+    <if test="detail_addr != null">detail_addr = #{detail_addr},</if>
+    <if test="biz_num != null">biz_num = #{biz_num},</if>
+    <if test="email != null">email = #{email},</if>
+    <if test="bank != null">bank = #{bank},</if>
+    <if test="bank_account != null">bank_account = #{bank_account},</if>
+    <if test="memo != null">memo = #{memo},</if>
+    cust_update_date = NOW(),
+  </set>
+  WHERE id = #{id}
+</update>
+
+
+
+
+
+
+
+
+</mapper>

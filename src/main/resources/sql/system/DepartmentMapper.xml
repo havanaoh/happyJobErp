@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.system.dao.DepartmentDao">
+
+	<select id="getDepartmentList" resultType="kr.happyjob.study.system.model.DepartmentModel">
+		SELECT
+			  detail_code as detailCode
+			, detail_name as detailName
+		FROM
+			tb_detail_code
+		<where>
+			group_code = 'DP'
+			AND higher_code = detail_code 
+			<if test="(searchDepartmentName != null) and (!''.equals(searchDepartmentName))">
+				AND detail_name LIKE CONCAT('%', #{searchDepartmentName} ,'%')
+			</if>
+		</where>
+		ORDER BY detail_code DESC
+		LIMIT #{startSeq}, #{pageSize}
+	</select>
+
+	<select id="getDepartmentCnt" resultType="int">
+		SELECT
+			count(detail_code)
+		FROM
+			tb_detail_code
+		<where>
+			group_code = 'DP'
+			AND higher_code = detail_code 
+			<if test="(searchDepartmentName != null) and (!''.equals(searchDepartmentName))">
+				AND detail_name LIKE CONCAT('%', #{searchDepartmentName} ,'%')
+			</if>
+		</where>
+	</select>
+	
+	<select id="departmentDetail" resultType="kr.happyjob.study.system.model.DepartmentModel">
+		SELECT
+			  detail_code as detailCode
+			, detail_name as detailName
+		FROM
+			tb_detail_code
+		WHERE detail_code = #{detailCode}
+	</select>
+	
+	<insert id="departmentSave">
+		INSERT INTO tb_detail_code
+		(
+			  detail_code
+			, group_code
+			, higher_code
+			, detail_name
+			, note
+			, use_yn
+			, reg_id
+			, reg_date
+		) VALUES (
+			  #{detailCode}
+			, 'DP'
+			, #{detailCode}
+			, #{detailName}
+			, '부서코드'
+			, 'Y'
+			, #{loginId}
+			, now()
+		)
+	</insert>
+	
+	<update id="departmentUpdate">
+    UPDATE tb_detail_code
+    SET
+          detail_code = #{newDetailCode}    
+        , higher_code = #{newDetailCode}   
+        , detail_name = #{detailName}       
+        , update_id = #{loginId}            
+        , update_date = NOW()               
+    WHERE detail_code = #{oldDetailCode};   
+	</update>
+
+	<delete id="departmentDelete">
+		DELETE FROM tb_detail_code
+		WHERE detail_code = #{detailCode}
+	</delete>
+</mapper>

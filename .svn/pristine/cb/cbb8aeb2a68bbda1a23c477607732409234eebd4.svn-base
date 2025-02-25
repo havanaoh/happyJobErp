@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.happyjob.study.system.dao.GroupDao">
+
+	<select id="getGroupList" resultType="kr.happyjob.study.system.model.GroupModel">
+		SELECT
+			  group_code as groupCode
+			, group_name as groupName
+			, note as note
+		FROM
+			tb_group_code
+		<where>
+			AND reference_code NOT LIKE 'AC'  OR reference_code IS NULL 
+			AND group_code NOT LIKE 'DP'
+			<if test="(searchGroupName != null) and (!''.equals(searchGroupName))">
+				AND group_name LIKE CONCAT('%', #{searchGroupName} ,'%')
+			</if>
+			<if test="(searchGroupNote != null) and (!''.equals(searchGroupNote))">
+				AND note LIKE CONCAT('%', #{searchGroupNote} ,'%')
+			</if>
+		</where>
+		ORDER BY group_code ASC
+		LIMIT #{startSeq}, #{pageSize}
+	</select>
+
+	<select id="getGroupCnt" resultType="int">
+		SELECT
+			count(group_code)
+		FROM
+			tb_group_code
+		<where>
+			AND reference_code NOT LIKE 'AC'  OR reference_code IS NULL
+			AND group_code NOT LIKE 'DP'
+			<if test="(searchGroupName != null) and (!''.equals(searchGroupName))">
+				AND group_name LIKE CONCAT('%', #{searchGroupName} ,'%')
+			</if>
+			<if test="(searchGroupNote != null) and (!''.equals(searchGroupNote))">
+				AND note LIKE CONCAT('%', #{searchGroupNote} ,'%')
+			</if>
+		</where>
+	</select>
+	
+	<select id="getDetailList" resultType="kr.happyjob.study.system.model.GroupModel">
+		SELECT
+			  group_code as groupCode
+			, detail_code as detailCode
+			, detail_name as detailName
+			, note as note
+		FROM
+			tb_detail_code
+		WHERE
+			group_code = #{groupCode}
+		ORDER BY detail_code ASC
+		LIMIT #{startSeq}, #{pageSize}
+	</select>
+
+	<select id="getDetailCnt" resultType="int">
+		SELECT
+			count(group_code)
+		FROM
+			tb_detail_code	
+		WHERE
+			group_code = #{groupCode}		
+	</select>
+	
+	<select id="groupDetail" resultType="kr.happyjob.study.system.model.GroupModel">
+		SELECT
+			  group_code as groupCode
+			, group_name as groupName
+			, note as note
+			, use_yn as useYn
+		FROM
+			tb_group_code
+		WHERE group_code = #{groupCode}
+	</select>
+	
+	<select id="detailDetail" resultType="kr.happyjob.study.system.model.GroupModel">
+		SELECT
+			  detail_code as detailCode
+			, detail_name as detailName
+			, note as note
+			, use_yn as useYn
+			, higher_code as higherCode
+		FROM
+			tb_detail_code
+		WHERE detail_code = #{detailCode}
+	</select>
+	
+	<insert id="groupSave">
+		INSERT INTO tb_group_code
+		(
+			  group_code
+			, group_name
+			, note
+			, use_yn
+			, reg_id
+			, reg_date
+		) VALUES (
+			  #{groupCode}
+			, #{groupName}
+			, #{groupNote}
+			, 'Y'
+			, #{loginId}
+			, now()
+		)
+	</insert>
+	
+	<update id="groupUpdate">
+    UPDATE tb_group_code
+    SET
+          group_code = #{newGroupCode}    
+        , group_name = #{groupName}    
+        , note = #{groupNote}
+        , use_yn = #{groupUseYn}   
+        , update_id = #{loginId}            
+        , update_date = NOW()               
+    WHERE group_code = #{oldGroupCode}
+	</update>
+
+	
+	<insert id="detailSave">
+		INSERT INTO tb_detail_code
+		(
+			  group_code
+			, detail_code
+			, detail_name
+			, note
+			, use_yn
+			, reg_id
+			, reg_date
+			, higher_code
+		) VALUES (
+			  #{groupCode}
+			, #{detailCode}
+			, #{detailName}
+			, #{detailNote}
+			, 'Y'
+			, #{loginId}
+			, now()
+			, #{higher_code}
+		)
+	</insert>
+	
+	<update id="detailUpdate">
+    UPDATE tb_detail_code
+    SET
+    	detail_code = #{newDetailCode}
+    	, detail_name = #{detailName}    
+        , note = #{detailNote}
+        , use_yn = #{detailUseYn}   
+        , update_id = #{loginId}            
+        , update_date = NOW()
+        , higher_code = #{higher_code}               
+    WHERE detail_code = #{oldDetailCode}
+	</update>
+
+</mapper>
